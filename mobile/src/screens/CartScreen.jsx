@@ -1,83 +1,69 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  ImageBackground,
-  Dimensions,
-  SafeAreaView,
-  Modal,
-  TouchableOpacity,
-  Animated,
-  ActivityIndicator,
+  View, Text, FlatList, StyleSheet, ImageBackground, Dimensions,
+  SafeAreaView, Modal, TouchableOpacity, Animated, ActivityIndicator,
+  TextInput, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  updateQuantity,
-  removeFromCart,
-  removeItems,
-  clearCart,
-  selectCartItems,
-  selectCartTotal,
+  updateQuantity, removeFromCart, removeItems, clearCart,
+  selectCartItems, selectCartTotal,
 } from '../store/cartSlice';
+import { createOrder } from '../store/orderSlice';
+import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import CartList from '../components/CartList';
 import FooterNavigation from '../components/FooterNavigation';
 
 const { width, height } = Dimensions.get('window');
-const BG_IMAGE =
-  'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
+const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
 
 const CartScreen = ({ navigation }) => {
-  const dispatch = useDispatch();
-  const cartItems = useSelector(selectCartItems);
-  const cartTotal = useSelector(selectCartTotal);
-  const hydrated = useSelector((s) => s.cart.hydrated);
+  const dispatch   = useDispatch();
+  const { accessToken, user } = useAuth();
 
-  const [checkedIds, setCheckedIds] = useState([]);
-  const [removeModalVisible, setRemoveModalVisible] = useState(false);
-  const [pendingRemoveItem, setPendingRemoveItem] = useState(null);
+  const cartItems   = useSelector(selectCartItems);
+  const cartTotal   = useSelector(selectCartTotal);
+  const hydrated    = useSelector((s) => s.cart.hydrated);
+  const orderLoading = useSelector((s) => s.orders.loading);
+
+  const [checkedIds,           setCheckedIds]           = useState([]);
+  const [removeModalVisible,   setRemoveModalVisible]   = useState(false);
+  const [pendingRemoveItem,    setPendingRemoveItem]     = useState(null);
   const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
-  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  const [checkoutStep,         setCheckoutStep]         = useState('summary'); // 'summary' | 'address' | 'success'
+  const [orderError,           setOrderError]           = useState('');
+  const [placedOrderId,        setPlacedOrderId]        = useState(null);
+
+  // Shipping form
+  const [fullName,  setFullName]  = useState(`${user?.firstName || ''} ${user?.lastName || ''}`.trim());
+  const [address,   setAddress]   = useState('');
+  const [city,      setCity]      = useState('');
+  const [province,  setProvince]  = useState('');
+  const [zipCode,   setZipCode]   = useState('');
+  const [phone,     setPhone]     = useState('');
 
   const slideAnim = useRef(new Animated.Value(100)).current;
 
-  const hasChecked = checkedIds.length > 0;
-
-  // Checked items derived from cart
   const checkedItems = cartItems.filter((i) => checkedIds.includes(i.id));
-  const checkedTotal = checkedItems.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
+  const checkedTotal = checkedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  // Slide action bar in/out
   const showActionBar = (show) => {
     Animated.timing(slideAnim, {
-      toValue: show ? 0 : 100,
-      duration: 280,
-      useNativeDriver: true,
+      toValue: show ? 0 : 100, duration: 280, useNativeDriver: true,
     }).start();
   };
 
-  // Keep action bar in sync when items are removed externally
   useEffect(() => {
-    const stillChecked = checkedIds.filter((id) =>
-      cartItems.some((i) => i.id === id)
-    );
+    const stillChecked = checkedIds.filter((id) => cartItems.some((i) => i.id === id));
     if (stillChecked.length !== checkedIds.length) {
       setCheckedIds(stillChecked);
       showActionBar(stillChecked.length > 0);
     }
   }, [cartItems]);
 
-  // ── Quantity change ───────────────────────────────────────────
-  const handleQuantityChange = (id, newQty) => {
-    dispatch(updateQuantity({ id, quantity: newQty }));
-  };
+  const handleQuantityChange = (id, newQty) => dispatch(updateQuantity({ id, quantity: newQty }));
 
-  // ── Minus at qty 1 → show remove confirmation ─────────────────
   const handleMinusAtOne = (item) => {
     setPendingRemoveItem(item);
     setRemoveModalVisible(true);
@@ -92,60 +78,81 @@ const CartScreen = ({ navigation }) => {
     setPendingRemoveItem(null);
   };
 
-  // ── Checkbox toggle ───────────────────────────────────────────
   const handleCheckToggle = (id) => {
     setCheckedIds((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((i) => i !== id)
-        : [...prev, id];
+      const next = prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id];
       showActionBar(next.length > 0);
       return next;
     });
   };
 
-  // ── Batch remove checked items ────────────────────────────────
   const handleBatchRemove = () => {
     dispatch(removeItems(checkedIds));
     setCheckedIds([]);
     showActionBar(false);
   };
 
-  // ── Checkout ──────────────────────────────────────────────────
-  const handleCheckout = () => {
-    setCheckoutModalVisible(true);
-    setCheckoutSuccess(false);
+  const handleSelectAll = () => {
+    if (checkedIds.length === cartItems.length) {
+      setCheckedIds([]); showActionBar(false);
+    } else {
+      const allIds = cartItems.map((i) => i.id);
+      setCheckedIds(allIds); showActionBar(allIds.length > 0);
+    }
   };
 
-  const confirmCheckout = () => {
-    // Remove only the checked items from SQLite + Redux
-    dispatch(removeItems(checkedIds));
-    setCheckedIds([]);
-    showActionBar(false);
-    setCheckoutSuccess(true);
+  // ── Open checkout modal ───────────────────────────────────────
+  const openCheckout = () => {
+    setCheckoutStep('summary');
+    setOrderError('');
+    setCheckoutModalVisible(true);
+  };
+
+  // ── Place the order ───────────────────────────────────────────
+  const handlePlaceOrder = async () => {
+    setOrderError('');
+    if (!fullName.trim() || !address.trim() || !city.trim() || !phone.trim()) {
+      setOrderError('Please fill in all required shipping fields.');
+      return;
+    }
+
+    const orderItems = checkedItems.map((item) => ({
+      product:   item.productId ?? item.id,
+      name:      item.name,
+      variation: item.variation,
+      price:     item.price,
+      quantity:  item.quantity,
+      image:     item.image,
+    }));
+
+    try {
+      const result = await dispatch(
+        createOrder({
+          items: orderItems,
+          total: checkedTotal,
+          shippingAddress: { fullName, address, city, province, zipCode, phone },
+          paymentMethod: 'Cash on Delivery',
+          accessToken,
+        })
+      ).unwrap();
+
+      setPlacedOrderId(result._id);
+      // Remove checked items from cart after successful order
+      dispatch(removeItems(checkedIds));
+      setCheckedIds([]);
+      showActionBar(false);
+      setCheckoutStep('success');
+    } catch (e) {
+      setOrderError(e || 'Failed to place order. Please try again.');
+    }
   };
 
   const closeCheckoutModal = () => {
     setCheckoutModalVisible(false);
-    setCheckoutSuccess(false);
-    if (checkoutSuccess) {
-      navigation.navigate('Orders');
-    }
+    if (checkoutStep === 'success') navigation.navigate('Orders');
   };
 
-  // ── Select all toggle ─────────────────────────────────────────
-  const handleSelectAll = () => {
-    if (checkedIds.length === cartItems.length) {
-      setCheckedIds([]);
-      showActionBar(false);
-    } else {
-      const allIds = cartItems.map((i) => i.id);
-      setCheckedIds(allIds);
-      showActionBar(allIds.length > 0);
-    }
-  };
-
-  const allChecked =
-    cartItems.length > 0 && checkedIds.length === cartItems.length;
+  const allChecked = cartItems.length > 0 && checkedIds.length === cartItems.length;
 
   if (!hydrated) {
     return (
@@ -168,29 +175,13 @@ const CartScreen = ({ navigation }) => {
           ListHeaderComponent={
             <View>
               <PageHeader title="CART" />
-              {/* Select all row */}
               {cartItems.length > 0 && (
-                <TouchableOpacity
-                  style={styles.selectAllRow}
-                  onPress={handleSelectAll}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.selectAllBox,
-                      allChecked && styles.selectAllBoxChecked,
-                    ]}
-                  >
-                    {allChecked && (
-                      <Text style={styles.checkMark}>✓</Text>
-                    )}
+                <TouchableOpacity style={styles.selectAllRow} onPress={handleSelectAll} activeOpacity={0.7}>
+                  <View style={[styles.selectAllBox, allChecked && styles.selectAllBoxChecked]}>
+                    {allChecked && <Text style={styles.checkMark}>✓</Text>}
                   </View>
-                  <Text style={styles.selectAllText}>
-                    {allChecked ? 'Deselect All' : 'Select All'}
-                  </Text>
-                  <Text style={styles.cartCount}>
-                    {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
-                  </Text>
+                  <Text style={styles.selectAllText}>{allChecked ? 'Deselect All' : 'Select All'}</Text>
+                  <Text style={styles.cartCount}>{cartItems.length} item{cartItems.length !== 1 ? 's' : ''}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -198,11 +189,7 @@ const CartScreen = ({ navigation }) => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Your cart is empty.</Text>
-              <TouchableOpacity
-                style={styles.shopBtn}
-                onPress={() => navigation.navigate('Landing')}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.shopBtn} onPress={() => navigation.navigate('Landing')} activeOpacity={0.85}>
                 <Text style={styles.shopBtnText}>SHOP NOW</Text>
               </TouchableOpacity>
             </View>
@@ -222,71 +209,40 @@ const CartScreen = ({ navigation }) => {
       </SafeAreaView>
 
       {/* ── Sliding Action Bar ── */}
-      {hasChecked && (
-        <Animated.View
-          style={[styles.actionBar, { transform: [{ translateY: slideAnim }] }]}
-        >
-          {/* Summary */}
+      {checkedIds.length > 0 && (
+        <Animated.View style={[styles.actionBar, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.actionSummary}>
-            <Text style={styles.actionSummaryLabel}>
-              {checkedIds.length} selected
-            </Text>
-            <Text style={styles.actionSummaryTotal}>
-              Php. {checkedTotal.toLocaleString()}
-            </Text>
+            <Text style={styles.actionSummaryLabel}>{checkedIds.length} selected</Text>
+            <Text style={styles.actionSummaryTotal}>Php. {checkedTotal.toLocaleString()}</Text>
           </View>
           <View style={styles.actionBtns}>
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={handleBatchRemove}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.removeBtn} onPress={handleBatchRemove} activeOpacity={0.85}>
               <Text style={styles.removeBtnText}>REMOVE</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.checkoutBtn}
-              onPress={handleCheckout}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.checkoutBtn} onPress={openCheckout} activeOpacity={0.85}>
               <Text style={styles.checkoutBtnText}>CHECKOUT</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
       )}
 
-      {/* Footer */}
       <View style={styles.footer}>
         <FooterNavigation navigation={navigation} activeScreen="Cart" />
       </View>
 
-      {/* ── Remove Single Item Modal ── */}
-      <Modal
-        visible={removeModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRemoveModalVisible(false)}
-      >
+      {/* ── Remove Single Modal ── */}
+      <Modal visible={removeModalVisible} transparent animationType="fade" onRequestClose={() => setRemoveModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>REMOVE ITEM</Text>
             <Text style={styles.modalMessage}>
-              Would you like to remove{' '}
-              <Text style={styles.modalHighlight}>
-                {pendingRemoveItem?.name}
-              </Text>{' '}
-              from your cart?
+              Remove <Text style={styles.modalHighlight}>{pendingRemoveItem?.name}</Text> from your cart?
             </Text>
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setRemoveModalVisible(false)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRemoveModalVisible(false)}>
                 <Text style={styles.modalCancelText}>CANCEL</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalRemoveBtn}
-                onPress={confirmRemoveSingle}
-              >
+              <TouchableOpacity style={styles.modalRemoveBtn} onPress={confirmRemoveSingle}>
                 <Text style={styles.modalActionText}>REMOVE</Text>
               </TouchableOpacity>
             </View>
@@ -295,80 +251,98 @@ const CartScreen = ({ navigation }) => {
       </Modal>
 
       {/* ── Checkout Modal ── */}
-      <Modal
-        visible={checkoutModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeCheckoutModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            {checkoutSuccess ? (
-              <>
-                <Text style={styles.successEmoji}>🎉</Text>
-                <Text style={styles.modalTitle}>ORDER PLACED!</Text>
-                <Text style={styles.modalMessage}>
-                  Your order has been placed successfully. You can track it in the Orders screen.
-                </Text>
-                <TouchableOpacity
-                  style={styles.modalConfirmBtn}
-                  onPress={closeCheckoutModal}
-                >
-                  <Text style={styles.modalActionText}>VIEW ORDERS</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.modalTitle}>CHECKOUT</Text>
+      <Modal visible={checkoutModalVisible} transparent animationType="slide" onRequestClose={closeCheckoutModal}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
-                {/* Order summary */}
-                <View style={styles.checkoutSummary}>
-                  {checkedItems.map((item) => (
-                    <View key={item.id} style={styles.checkoutRow}>
-                      <Text style={styles.checkoutItemName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.checkoutItemQty}>×{item.quantity}</Text>
-                      <Text style={styles.checkoutItemPrice}>
-                        Php. {(item.price * item.quantity).toLocaleString()}
-                      </Text>
-                    </View>
-                  ))}
-                  <View style={styles.checkoutDivider} />
-                  <View style={styles.checkoutRow}>
-                    <Text style={styles.checkoutTotalLabel}>TOTAL</Text>
-                    <Text style={styles.checkoutTotalValue}>
-                      Php. {checkedTotal.toLocaleString()}
-                    </Text>
+          {/* SUCCESS STATE */}
+          {checkoutStep === 'success' ? (
+            <View style={styles.modalBox}>
+              <Text style={styles.successEmoji}>🎉</Text>
+              <Text style={styles.modalTitle}>ORDER PLACED!</Text>
+              <Text style={styles.modalMessage}>
+                Your order has been placed successfully. You'll receive a notification when the status updates.
+              </Text>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={closeCheckoutModal}>
+                <Text style={styles.modalActionText}>VIEW ORDERS</Text>
+              </TouchableOpacity>
+            </View>
+
+          /* SUMMARY STATE */
+          ) : checkoutStep === 'summary' ? (
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>ORDER SUMMARY</Text>
+              <ScrollView style={styles.summaryScroll} showsVerticalScrollIndicator={false}>
+                {checkedItems.map((item) => (
+                  <View key={item.id} style={styles.checkoutRow}>
+                    <Text style={styles.checkoutItemName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.checkoutItemQty}>×{item.quantity}</Text>
+                    <Text style={styles.checkoutItemPrice}>Php. {(item.price * item.quantity).toLocaleString()}</Text>
                   </View>
+                ))}
+                <View style={styles.checkoutDivider} />
+                <View style={styles.checkoutRow}>
+                  <Text style={styles.checkoutTotalLabel}>TOTAL</Text>
+                  <Text style={styles.checkoutTotalValue}>Php. {checkedTotal.toLocaleString()}</Text>
                 </View>
+              </ScrollView>
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={closeCheckoutModal}>
+                  <Text style={styles.modalCancelText}>CANCEL</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setCheckoutStep('address')}>
+                  <Text style={styles.modalActionText}>NEXT</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-                <Text style={styles.modalMessage}>
-                  Confirm your order for{' '}
-                  <Text style={styles.modalHighlight}>
-                    Php. {checkedTotal.toLocaleString()}
-                  </Text>
-                  ?
-                </Text>
-
+          /* ADDRESS STATE */
+          ) : (
+            <ScrollView contentContainerStyle={styles.addressModalContainer} keyboardShouldPersistTaps="handled">
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>SHIPPING INFO</Text>
+                {!!orderError && (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{orderError}</Text>
+                  </View>
+                )}
+                {[
+                  { label: 'Full Name *',      value: fullName,   setter: setFullName },
+                  { label: 'Address *',         value: address,   setter: setAddress },
+                  { label: 'City *',            value: city,      setter: setCity },
+                  { label: 'Province',          value: province,  setter: setProvince },
+                  { label: 'ZIP Code',          value: zipCode,   setter: setZipCode },
+                  { label: 'Phone Number *',    value: phone,     setter: setPhone },
+                ].map(({ label, value, setter }) => (
+                  <View key={label}>
+                    <Text style={styles.inputLabel}>{label}</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={value}
+                      onChangeText={setter}
+                      placeholderTextColor="#666"
+                      placeholder={label.replace(' *', '')}
+                    />
+                  </View>
+                ))}
                 <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={closeCheckoutModal}
-                  >
-                    <Text style={styles.modalCancelText}>CANCEL</Text>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setCheckoutStep('summary')}>
+                    <Text style={styles.modalCancelText}>BACK</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalConfirmBtn}
-                    onPress={confirmCheckout}
+                    onPress={handlePlaceOrder}
+                    disabled={orderLoading}
                   >
-                    <Text style={styles.modalActionText}>CONFIRM</Text>
+                    {orderLoading
+                      ? <ActivityIndicator color="#ffffff" />
+                      : <Text style={styles.modalActionText}>PLACE ORDER</Text>
+                    }
                   </TouchableOpacity>
                 </View>
-              </>
-            )}
-          </View>
-        </View>
+              </View>
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
       </Modal>
     </ImageBackground>
   );
@@ -380,243 +354,55 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingBottom: 180, paddingTop: 8 },
-
-  // Select all
-  selectAllRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  selectAllBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectAllBoxChecked: {
-    backgroundColor: '#ffffff',
-  },
+  selectAllRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  selectAllBox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  selectAllBoxChecked: { backgroundColor: '#ffffff' },
   checkMark: { fontSize: 12, color: '#010101', fontWeight: '700' },
-  selectAllText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 13,
-    color: '#ffffff',
-    flex: 1,
-  },
-  cartCount: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-
-  // Empty state
+  selectAllText: { fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#ffffff', flex: 1 },
+  cartCount: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
   emptyContainer: { alignItems: 'center', paddingTop: 80, gap: 16 },
-  emptyText: {
-    fontFamily: 'Montserrat_400Regular',
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 15,
-  },
-  shopBtn: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 6,
-  },
-  shopBtnText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#010101',
-    letterSpacing: 1,
-  },
-
-  // Action bar
+  emptyText: { fontFamily: 'Montserrat_400Regular', color: 'rgba(255,255,255,0.6)', fontSize: 15 },
+  shopBtn: { backgroundColor: '#ffffff', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 6 },
+  shopBtnText: { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#010101', letterSpacing: 1 },
   actionBar: {
-    position: 'absolute',
-    bottom: 80,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(1,1,1,0.95)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    gap: 8,
+    position: 'absolute', bottom: 80, left: 0, right: 0,
+    backgroundColor: 'rgba(1,1,1,0.95)', paddingHorizontal: 16, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', gap: 8,
   },
-  actionSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  actionSummaryLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  actionSummaryTotal: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
+  actionSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  actionSummaryLabel: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  actionSummaryTotal: { fontFamily: 'Montserrat_700Bold', fontSize: 15, fontWeight: '700', color: '#ffffff' },
   actionBtns: { flexDirection: 'row', gap: 12 },
-  removeBtn: {
-    flex: 1,
-    backgroundColor: '#ff3131',
-    borderRadius: 8,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeBtnText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 1,
-  },
-  checkoutBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkoutBtnText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#010101',
-    letterSpacing: 1,
-  },
-
+  removeBtn: { flex: 1, backgroundColor: '#ff3131', borderRadius: 8, height: 48, alignItems: 'center', justifyContent: 'center' },
+  removeBtnText: { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff', letterSpacing: 1 },
+  checkoutBtn: { flex: 1, backgroundColor: '#ffffff', borderRadius: 8, height: 48, alignItems: 'center', justifyContent: 'center' },
+  checkoutBtnText: { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#010101', letterSpacing: 1 },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-
-  // Modals
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalBox: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 24,
-    width: '100%',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  addressModalContainer: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 40 },
+  modalBox: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 24, width: '100%' },
   successEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
-  modalTitle: {
-    fontFamily: 'Oswald_700Bold',
-    fontSize: 22,
-    fontStyle: 'italic',
-    color: '#ffffff',
-    marginBottom: 12,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  modalMessage: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    color: '#cccccc',
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  modalTitle: { fontFamily: 'Oswald_700Bold', fontSize: 22, fontStyle: 'italic', color: '#ffffff', marginBottom: 12, textAlign: 'center', letterSpacing: 1 },
+  modalMessage: { fontFamily: 'Montserrat_400Regular', fontSize: 14, color: '#cccccc', lineHeight: 22, textAlign: 'center', marginBottom: 20 },
   modalHighlight: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700' },
-
-  // Checkout summary inside modal
-  checkoutSummary: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    gap: 6,
-  },
-  checkoutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  checkoutItemName: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#cccccc',
-    flex: 1,
-  },
-  checkoutItemQty: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#888',
-  },
-  checkoutItemPrice: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  checkoutDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
-  checkoutTotalLabel: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#ffffff',
-    flex: 1,
-  },
-  checkoutTotalValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffde59',
-  },
-
-  modalBtnRow: { flexDirection: 'row', gap: 12 },
-  modalCancelBtn: {
-    flex: 1,
-    backgroundColor: '#3a3a3a',
-    borderRadius: 6,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelText: {
-    fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  modalRemoveBtn: {
-    flex: 1,
-    backgroundColor: '#ff3131',
-    borderRadius: 6,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    backgroundColor: '#38b6ff',
-    borderRadius: 6,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalActionText: {
-    fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 14,
-    letterSpacing: 1,
-  },
+  summaryScroll: { maxHeight: 220, marginBottom: 16 },
+  checkoutRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  checkoutItemName: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#cccccc', flex: 1 },
+  checkoutItemQty: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#888' },
+  checkoutItemPrice: { fontFamily: 'Montserrat_700Bold', fontSize: 12, fontWeight: '700', color: '#ffffff' },
+  checkoutDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 8 },
+  checkoutTotalLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#ffffff', flex: 1 },
+  checkoutTotalValue: { fontFamily: 'Montserrat_700Bold', fontSize: 15, fontWeight: '700', color: '#ffde59' },
+  errorBox: { backgroundColor: 'rgba(255,49,49,0.15)', borderWidth: 1, borderColor: '#ff3131', borderRadius: 6, padding: 10, marginBottom: 12 },
+  errorText: { fontFamily: 'Montserrat_400Regular', color: '#ff3131', fontSize: 12 },
+  inputLabel: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#cccccc', marginTop: 10, marginBottom: 4 },
+  input: { backgroundColor: '#3a3a3a', borderWidth: 1, borderColor: '#555', borderRadius: 6, height: 44, paddingHorizontal: 12, color: '#ffffff', fontSize: 14 },
+  modalBtnRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalCancelBtn: { flex: 1, backgroundColor: '#3a3a3a', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalCancelText: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  modalRemoveBtn: { flex: 1, backgroundColor: '#ff3131', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalConfirmBtn: { flex: 1, backgroundColor: '#38b6ff', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalActionText: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700', fontSize: 14, letterSpacing: 1 },
 });
 
 export default CartScreen;

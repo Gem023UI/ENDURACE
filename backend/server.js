@@ -7,27 +7,25 @@ import cookieParser from 'cookie-parser';
 import productRouter from './routers/product.js';
 import authRouter from './routers/auth.js';
 import reviewRouter from './routers/review.js';
+import orderRouter from './routers/order.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ── Middleware ────────────────────────────────────────────────────
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ── Routes ────────────────────────────────────────────────────────
-app.use('/api/auth', authRouter);
+app.use('/api/auth',     authRouter);
 app.use('/api/products', productRouter);
-app.use('/api/reviews', reviewRouter);
+app.use('/api/reviews',  reviewRouter);
+app.use('/api/orders',   orderRouter);
 
-// ── Health check ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ message: 'EndurACE API is running' }));
 
-// ── DB + Server ───────────────────────────────────────────────────
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
