@@ -4,7 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
-import productRouter from './routers/productRouter.js';
+import productRouter from './routers/product.js';
+import authRouter from './routers/auth.js';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // ── Routes ────────────────────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api/products', productRouter);
 
 // ── Health check ──────────────────────────────────────────────────

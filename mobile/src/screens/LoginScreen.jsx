@@ -11,40 +11,134 @@ import {
   Platform,
   ScrollView,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import * as Facebook from 'expo-auth-session/providers/facebook';
 import AuthHeader from '../components/AuthHeader';
+import { useAuth } from '../context/AuthContext';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
+const BG_IMAGE =
+  'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772175765/4569b7cf-0df7-497e-81b4-dabc333985fc.png';
 
-const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772175765/4569b7cf-0df7-497e-81b4-dabc333985fc.png';
+// ⚠️ Replace these with your actual Expo/Google/Facebook client IDs
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
+const FACEBOOK_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || 'YOUR_FACEBOOK_APP_ID';
 
 const LoginScreen = ({ navigation }) => {
+  const { login, loginWithGoogle, loginWithFacebook, authError, setAuthError } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
 
+  // ── Google OAuth ──────────────────────────────────────────────
+  const [_googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
+  });
+
+  // ── Facebook OAuth ────────────────────────────────────────────
+  const [_fbRequest, fbResponse, promptFacebookAsync] = Facebook.useAuthRequest({
+    clientId: FACEBOOK_APP_ID,
+  });
+
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  const handleLogin = () => {
-    navigation.navigate('Main', { screen: 'Landing' });
+  // Handle Google response
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      handleGoogleSuccess(googleResponse.authentication.accessToken);
+    }
+  }, [googleResponse]);
+
+  // Handle Facebook response
+  useEffect(() => {
+    if (fbResponse?.type === 'success') {
+      handleFacebookSuccess(fbResponse.authentication.accessToken);
+    }
+  }, [fbResponse]);
+
+  const handleGoogleSuccess = async (googleAccessToken) => {
+    try {
+      setSubmitting(true);
+      setError('');
+      // Fetch user info from Google
+      const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${googleAccessToken}` },
+      });
+      const userInfo = await userInfoRes.json();
+      await loginWithGoogle({
+        googleId: userInfo.id,
+        email: userInfo.email,
+        firstName: userInfo.given_name || '',
+        lastName: userInfo.family_name || '',
+        avatar: userInfo.picture || '',
+      });
+      navigation.navigate('Main', { screen: 'Landing' });
+    } catch (e) {
+      setError(e.message || 'Google login failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFacebookSuccess = async (fbAccessToken) => {
+    try {
+      setSubmitting(true);
+      setError('');
+      const userInfoRes = await fetch(
+        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${fbAccessToken}`
+      );
+      const userInfo = await userInfoRes.json();
+      const [firstName, ...rest] = (userInfo.name || '').split(' ');
+      await loginWithFacebook({
+        facebookId: userInfo.id,
+        email: userInfo.email || '',
+        firstName,
+        lastName: rest.join(' '),
+        avatar: userInfo.picture?.data?.url || '',
+      });
+      navigation.navigate('Main', { screen: 'Landing' });
+    } catch (e) {
+      setError(e.message || 'Facebook login failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    setError('');
+    if (!email.trim()) return setError('Email is required.');
+    if (!password) return setError('Password is required.');
+
+    try {
+      setSubmitting(true);
+      await login(email.trim(), password);
+      navigation.navigate('Main', { screen: 'Landing' });
+    } catch (e) {
+      setError(e.message || 'Login failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -59,19 +153,20 @@ const LoginScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <Animated.View
-            style={{
-              flex: 1,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            }}
+            style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
           >
-            {/* Header */}
             <View style={styles.headerArea}>
               <AuthHeader title="LOGIN" />
             </View>
 
-            {/* Form */}
             <View style={styles.formContainer}>
+              {/* Error */}
+              {!!error && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
               <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
@@ -80,6 +175,7 @@ const LoginScreen = ({ navigation }) => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholderTextColor="#888"
+                placeholder="you@example.com"
               />
 
               <Text style={styles.label}>Password</Text>
@@ -90,6 +186,7 @@ const LoginScreen = ({ navigation }) => {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   placeholderTextColor="#888"
+                  placeholder="••••••••"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -107,12 +204,46 @@ const LoginScreen = ({ navigation }) => {
                 style={styles.submitBtn}
                 onPress={handleLogin}
                 activeOpacity={0.85}
+                disabled={submitting}
               >
-                <Text style={styles.submitText}>LOG IN</Text>
+                {submitting ? (
+                  <ActivityIndicator color="#010101" />
+                ) : (
+                  <Text style={styles.submitText}>LOG IN</Text>
+                )}
               </TouchableOpacity>
 
+              {/* Divider */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Buttons */}
+              <View style={styles.socialRow}>
+                <TouchableOpacity
+                  style={styles.googleBtn}
+                  activeOpacity={0.8}
+                  onPress={() => promptGoogleAsync()}
+                  disabled={submitting}
+                >
+                  <FontAwesomeIcon icon={faGoogle} size={20} color="#ffffff" />
+                  <Text style={styles.socialText}>Google</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.facebookBtn}
+                  activeOpacity={0.8}
+                  onPress={() => promptFacebookAsync()}
+                  disabled={submitting}
+                >
+                  <FontAwesomeIcon icon={faFacebook} size={20} color="#ffffff" />
+                  <Text style={styles.socialText}>Facebook</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.switchRow}>
-                <Text style={styles.switchText}>Dont have an Account? </Text>
+                <Text style={styles.switchText}>Don't have an account? </Text>
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Auth', { screen: 'Register' })}
                 >
@@ -121,7 +252,6 @@ const LoginScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {/* Footer */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>EndurACE.</Text>
               <Text style={styles.footerText}>All Rights Reserved @ 2026.</Text>
@@ -134,29 +264,24 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  bg: {
-    flex: 1,
-    width,
-    height,
+  bg: { flex: 1, width, height },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: 'space-between' },
+  headerArea: { marginTop: 80, marginBottom: 40 },
+  formContainer: { paddingHorizontal: 30, flex: 1 },
+  errorBox: {
+    backgroundColor: 'rgba(255,49,49,0.18)',
+    borderWidth: 1,
+    borderColor: '#ff3131',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 10,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-  },
-  headerArea: {
-    marginTop: 80,
-    marginBottom: 40,
-  },
-  formContainer: {
-    paddingHorizontal: 30,
-    flex: 1,
+  errorText: {
+    fontFamily: 'Montserrat_400Regular',
+    color: '#ff3131',
+    fontSize: 13,
   },
   label: {
     fontFamily: 'Montserrat_400Regular',
@@ -191,9 +316,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     height: '100%',
   },
-  eyeBtn: {
-    padding: 14,
-  },
+  eyeBtn: { padding: 14 },
   submitBtn: {
     backgroundColor: '#ffffff',
     borderRadius: 6,
@@ -209,6 +332,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#010101',
     letterSpacing: 1,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#555' },
+  dividerText: {
+    fontFamily: 'Montserrat_400Regular',
+    color: '#888',
+    fontSize: 12,
+    marginHorizontal: 12,
+  },
+  socialRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  googleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#DB4437',
+    borderRadius: 6,
+    height: 50,
+  },
+  facebookBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#1877F2',
+    borderRadius: 6,
+    height: 50,
+  },
+  socialText: {
+    fontFamily: 'Montserrat_700Bold',
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   switchRow: {
     flexDirection: 'row',
@@ -226,11 +388,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  footer: {
-    alignItems: 'center',
-    paddingBottom: 30,
-    paddingTop: 40,
-  },
+  footer: { alignItems: 'center', paddingBottom: 30, paddingTop: 40 },
   footerText: {
     fontFamily: 'Montserrat_400Regular',
     color: '#888',
