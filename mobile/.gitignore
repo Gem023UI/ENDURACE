@@ -37,7 +37,7 @@ yarn-error.*
 # local env files
 .env*.local
 
-# environment files
+# environment files - explicit rules for mobile and backend
 .env
 .env.local
 .env.development
@@ -48,6 +48,10 @@ yarn-error.*
 **/.env.development
 **/.env.production
 **/.env.test
+mobile/.env
+mobile/.env.*
+backend/.env
+backend/.env.*
 
 # typescript
 *.tsbuildinfo
@@ -59,6 +63,8 @@ yarn-error.*
 # backend
 backend/logs/
 backend/*.log
+backend/uploads/
+backend/temp/
 
 # logs
 logs/
