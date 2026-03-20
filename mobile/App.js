@@ -30,39 +30,41 @@ const RootNavigator = () => {
   const navRef      = useRef(null);
 
   useEffect(() => {
-    // SQLite cart
     initCartDB();
     dispatch(hydrateCart());
-
-    // Notification channel (Android)
     setupNotificationChannel();
 
-    // ── Handle notification tap (foreground / background) ────────
+    // Handle tap when app is foreground / background
     const unsub = addNotificationResponseListener((data) => {
       navigateFromNotification(data);
     });
 
-    // ── Handle tap when app was killed ───────────────────────────
+    // Handle tap when app was killed
     getLastNotificationResponse().then((response) => {
-      if (response) {
-        const data = response.notification.request.content.data;
-        navigateFromNotification(data);
-      }
+      if (response) navigateFromNotification(response.notification.request.content.data);
     });
 
     return unsub;
   }, []);
 
   const navigateFromNotification = (data) => {
-    if (!navRef.current) return;
+    if (!navRef.current || !data) return;
     const nav = navRef.current;
 
-    if (data?.screen === 'OrderInfo' && data?.orderId) {
-      // Navigate into Main → OrderInfo, passing orderId so the screen
-      // fetches the latest order from the API.
+    if (data.screen === 'OrderInfo' && data.orderId) {
       nav.navigate('Main', {
         screen: 'OrderInfo',
         params: { orderId: data.orderId },
+      });
+    } else if (data.screen === 'Promotion') {
+      // Promo notification tap → PromotionScreen
+      nav.navigate('Main', {
+        screen: 'Promotion',
+        params: {
+          title:        data.title        || '',
+          body:         data.body         || '',
+          discountCode: data.discountCode || null,
+        },
       });
     }
   };

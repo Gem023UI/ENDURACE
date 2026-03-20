@@ -14,33 +14,29 @@ const orderItemSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-
+    user:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     items: { type: [orderItemSchema], required: true },
-
     total: { type: Number, required: true },
+
+    // Discount applied at checkout
+    discountCode:   { type: String,  default: null },
+    discountAmount: { type: Number,  default: 0 },
 
     status: {
       type: String,
       enum: ['PENDING', 'TO_SHIP', 'DELIVERED', 'CANCELED'],
       default: 'PENDING',
     },
-
-    // Shipping address (simple flat fields — extend as needed)
     shippingAddress: {
-      fullName:  { type: String, default: '' },
-      address:   { type: String, default: '' },
-      city:      { type: String, default: '' },
-      province:  { type: String, default: '' },
-      zipCode:   { type: String, default: '' },
-      phone:     { type: String, default: '' },
+      fullName: { type: String, default: '' },
+      address:  { type: String, default: '' },
+      city:     { type: String, default: '' },
+      province: { type: String, default: '' },
+      zipCode:  { type: String, default: '' },
+      phone:    { type: String, default: '' },
     },
-
-    // Payment method label
-    paymentMethod: { type: String, default: 'Cash on Delivery' },
-
-    // Set when backend sends the status-update push notification
-    notificationSentAt: { type: Date, default: null },
+    paymentMethod:      { type: String, default: 'Cash on Delivery' },
+    notificationSentAt: { type: Date,   default: null },
   },
   { timestamps: true }
 );
