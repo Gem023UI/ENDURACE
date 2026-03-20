@@ -40,6 +40,15 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Populated by Review.calcAverageRating()
+    averageRating: {
+      type: Number,
+      default: 0,
+    },
+    numReviews: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

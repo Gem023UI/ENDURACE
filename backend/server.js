@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 
 import productRouter from './routers/product.js';
 import authRouter from './routers/auth.js';
+import reviewRouter from './routers/review.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(cookieParser());
 // ── Routes ────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/products', productRouter);
+app.use('/api/reviews', reviewRouter);
 
 // ── Health check ──────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ message: 'EndurACE API is running' }));

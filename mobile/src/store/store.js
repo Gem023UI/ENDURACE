@@ -1,10 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import productReducer from './productSlice';
+import reviewReducer from './reviewSlice';
+// orderSlice will be added in Term Test (MP order)
 
 const store = configureStore({
   reducer: {
     products: productReducer,
-    // orderSlice and reviewSlice will be added in their respective MPs
+    reviews: reviewReducer,
   },
 });
 
