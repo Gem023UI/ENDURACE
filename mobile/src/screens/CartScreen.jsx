@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,83 +10,49 @@ import {
   Modal,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  updateQuantity,
+  removeFromCart,
+  removeItems,
+  clearCart,
+  selectCartItems,
+  selectCartTotal,
+} from '../store/cartSlice';
 import PageHeader from '../components/PageHeader';
 import CartList from '../components/CartList';
 import FooterNavigation from '../components/FooterNavigation';
 
 const { width, height } = Dimensions.get('window');
-
-const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
-
-const INITIAL_CART = [
-  {
-    id: '1',
-    name: 'ADIZERO EVO SL',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174860/cade7624-faf6-482c-b09c-148ee9520063.png',
-  },
-  {
-    id: '2',
-    name: 'COLNAGO Y1RS',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174858/8fa956f5-bbb2-4ebc-9e0f-40a1cc870652.png',
-  },
-  {
-    id: '3',
-    name: 'MET Helmet',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174841/22698711-978e-4d9a-88f7-87ff711abb09.png',
-  },
-  {
-    id: '4',
-    name: 'TABOLU Cleats Shoes',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174827/f45dce54-b95f-46ee-ab66-1a9217d124c9.png',
-  },
-  {
-    id: '5',
-    name: 'Temu - Swimsuit',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174813/f4977c60-c6a1-4f41-ad14-7bdb434e3a76.png',
-  },
-  {
-    id: '6',
-    name: 'Adidas Running Apparel',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174793/fcd48718-1c40-484c-8c50-63a1c6640930.png',
-  },
-  {
-    id: '7',
-    name: 'ADIZERO EVO SL',
-    variation: 'Black & White',
-    price: 9459,
-    quantity: 1,
-    image: 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772174767/5e11096b-5264-415f-a435-1716b1ad7c77.png',
-  },
-];
+const BG_IMAGE =
+  'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
 
 const CartScreen = ({ navigation }) => {
-  const [cartItems, setCartItems] = useState(INITIAL_CART);
+  const dispatch = useDispatch();
+  const cartItems = useSelector(selectCartItems);
+  const cartTotal = useSelector(selectCartTotal);
+  const hydrated = useSelector((s) => s.cart.hydrated);
+
   const [checkedIds, setCheckedIds] = useState([]);
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [pendingRemoveItem, setPendingRemoveItem] = useState(null);
+  const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+
   const slideAnim = useRef(new Animated.Value(100)).current;
 
   const hasChecked = checkedIds.length > 0;
 
+  // Checked items derived from cart
+  const checkedItems = cartItems.filter((i) => checkedIds.includes(i.id));
+  const checkedTotal = checkedItems.reduce(
+    (sum, i) => sum + i.price * i.quantity,
+    0
+  );
+
+  // Slide action bar in/out
   const showActionBar = (show) => {
     Animated.timing(slideAnim, {
       toValue: show ? 0 : 100,
@@ -95,17 +61,38 @@ const CartScreen = ({ navigation }) => {
     }).start();
   };
 
-  const handleQuantityChange = (id, newQty) => {
-    setCartItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity: newQty } : item))
+  // Keep action bar in sync when items are removed externally
+  useEffect(() => {
+    const stillChecked = checkedIds.filter((id) =>
+      cartItems.some((i) => i.id === id)
     );
+    if (stillChecked.length !== checkedIds.length) {
+      setCheckedIds(stillChecked);
+      showActionBar(stillChecked.length > 0);
+    }
+  }, [cartItems]);
+
+  // ── Quantity change ───────────────────────────────────────────
+  const handleQuantityChange = (id, newQty) => {
+    dispatch(updateQuantity({ id, quantity: newQty }));
   };
 
+  // ── Minus at qty 1 → show remove confirmation ─────────────────
   const handleMinusAtOne = (item) => {
     setPendingRemoveItem(item);
     setRemoveModalVisible(true);
   };
 
+  const confirmRemoveSingle = () => {
+    if (pendingRemoveItem) {
+      dispatch(removeFromCart(pendingRemoveItem.id));
+      setCheckedIds((prev) => prev.filter((id) => id !== pendingRemoveItem.id));
+    }
+    setRemoveModalVisible(false);
+    setPendingRemoveItem(null);
+  };
+
+  // ── Checkbox toggle ───────────────────────────────────────────
   const handleCheckToggle = (id) => {
     setCheckedIds((prev) => {
       const next = prev.includes(id)
@@ -116,6 +103,61 @@ const CartScreen = ({ navigation }) => {
     });
   };
 
+  // ── Batch remove checked items ────────────────────────────────
+  const handleBatchRemove = () => {
+    dispatch(removeItems(checkedIds));
+    setCheckedIds([]);
+    showActionBar(false);
+  };
+
+  // ── Checkout ──────────────────────────────────────────────────
+  const handleCheckout = () => {
+    setCheckoutModalVisible(true);
+    setCheckoutSuccess(false);
+  };
+
+  const confirmCheckout = () => {
+    // Remove only the checked items from SQLite + Redux
+    dispatch(removeItems(checkedIds));
+    setCheckedIds([]);
+    showActionBar(false);
+    setCheckoutSuccess(true);
+  };
+
+  const closeCheckoutModal = () => {
+    setCheckoutModalVisible(false);
+    setCheckoutSuccess(false);
+    if (checkoutSuccess) {
+      navigation.navigate('Orders');
+    }
+  };
+
+  // ── Select all toggle ─────────────────────────────────────────
+  const handleSelectAll = () => {
+    if (checkedIds.length === cartItems.length) {
+      setCheckedIds([]);
+      showActionBar(false);
+    } else {
+      const allIds = cartItems.map((i) => i.id);
+      setCheckedIds(allIds);
+      showActionBar(allIds.length > 0);
+    }
+  };
+
+  const allChecked =
+    cartItems.length > 0 && checkedIds.length === cartItems.length;
+
+  if (!hydrated) {
+    return (
+      <ImageBackground source={{ uri: BG_IMAGE }} style={styles.bg} resizeMode="cover">
+        <View style={styles.overlay} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#ffffff" />
+        </View>
+      </ImageBackground>
+    );
+  }
+
   return (
     <ImageBackground source={{ uri: BG_IMAGE }} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
@@ -123,7 +165,48 @@ const CartScreen = ({ navigation }) => {
         <FlatList
           data={cartItems}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={<PageHeader title="CART" />}
+          ListHeaderComponent={
+            <View>
+              <PageHeader title="CART" />
+              {/* Select all row */}
+              {cartItems.length > 0 && (
+                <TouchableOpacity
+                  style={styles.selectAllRow}
+                  onPress={handleSelectAll}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.selectAllBox,
+                      allChecked && styles.selectAllBoxChecked,
+                    ]}
+                  >
+                    {allChecked && (
+                      <Text style={styles.checkMark}>✓</Text>
+                    )}
+                  </View>
+                  <Text style={styles.selectAllText}>
+                    {allChecked ? 'Deselect All' : 'Select All'}
+                  </Text>
+                  <Text style={styles.cartCount}>
+                    {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Your cart is empty.</Text>
+              <TouchableOpacity
+                style={styles.shopBtn}
+                onPress={() => navigation.navigate('Landing')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.shopBtnText}>SHOP NOW</Text>
+              </TouchableOpacity>
+            </View>
+          }
           renderItem={({ item }) => (
             <CartList
               item={item}
@@ -138,20 +221,36 @@ const CartScreen = ({ navigation }) => {
         />
       </SafeAreaView>
 
-      {/* Sliding Action Bar */}
+      {/* ── Sliding Action Bar ── */}
       {hasChecked && (
         <Animated.View
-          style={[
-            styles.actionBar,
-            { transform: [{ translateY: slideAnim }] },
-          ]}
+          style={[styles.actionBar, { transform: [{ translateY: slideAnim }] }]}
         >
-          <TouchableOpacity style={styles.removeBtn} activeOpacity={0.85}>
-            <Text style={styles.removeBtnText}>REMOVE</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.checkoutBtn} activeOpacity={0.85}>
-            <Text style={styles.checkoutBtnText}>CHECKOUT</Text>
-          </TouchableOpacity>
+          {/* Summary */}
+          <View style={styles.actionSummary}>
+            <Text style={styles.actionSummaryLabel}>
+              {checkedIds.length} selected
+            </Text>
+            <Text style={styles.actionSummaryTotal}>
+              Php. {checkedTotal.toLocaleString()}
+            </Text>
+          </View>
+          <View style={styles.actionBtns}>
+            <TouchableOpacity
+              style={styles.removeBtn}
+              onPress={handleBatchRemove}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.removeBtnText}>REMOVE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.checkoutBtn}
+              onPress={handleCheckout}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.checkoutBtnText}>CHECKOUT</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       )}
 
@@ -160,7 +259,7 @@ const CartScreen = ({ navigation }) => {
         <FooterNavigation navigation={navigation} activeScreen="Cart" />
       </View>
 
-      {/* Remove Modal */}
+      {/* ── Remove Single Item Modal ── */}
       <Modal
         visible={removeModalVisible}
         transparent
@@ -172,7 +271,7 @@ const CartScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>REMOVE ITEM</Text>
             <Text style={styles.modalMessage}>
               Would you like to remove{' '}
-              <Text style={styles.modalItemName}>
+              <Text style={styles.modalHighlight}>
                 {pendingRemoveItem?.name}
               </Text>{' '}
               from your cart?
@@ -186,11 +285,88 @@ const CartScreen = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalRemoveBtn}
-                onPress={() => setRemoveModalVisible(false)}
+                onPress={confirmRemoveSingle}
               >
-                <Text style={styles.modalRemoveText}>REMOVE</Text>
+                <Text style={styles.modalActionText}>REMOVE</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Checkout Modal ── */}
+      <Modal
+        visible={checkoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCheckoutModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            {checkoutSuccess ? (
+              <>
+                <Text style={styles.successEmoji}>🎉</Text>
+                <Text style={styles.modalTitle}>ORDER PLACED!</Text>
+                <Text style={styles.modalMessage}>
+                  Your order has been placed successfully. You can track it in the Orders screen.
+                </Text>
+                <TouchableOpacity
+                  style={styles.modalConfirmBtn}
+                  onPress={closeCheckoutModal}
+                >
+                  <Text style={styles.modalActionText}>VIEW ORDERS</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>CHECKOUT</Text>
+
+                {/* Order summary */}
+                <View style={styles.checkoutSummary}>
+                  {checkedItems.map((item) => (
+                    <View key={item.id} style={styles.checkoutRow}>
+                      <Text style={styles.checkoutItemName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.checkoutItemQty}>×{item.quantity}</Text>
+                      <Text style={styles.checkoutItemPrice}>
+                        Php. {(item.price * item.quantity).toLocaleString()}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={styles.checkoutDivider} />
+                  <View style={styles.checkoutRow}>
+                    <Text style={styles.checkoutTotalLabel}>TOTAL</Text>
+                    <Text style={styles.checkoutTotalValue}>
+                      Php. {checkedTotal.toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.modalMessage}>
+                  Confirm your order for{' '}
+                  <Text style={styles.modalHighlight}>
+                    Php. {checkedTotal.toLocaleString()}
+                  </Text>
+                  ?
+                </Text>
+
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={closeCheckoutModal}
+                  >
+                    <Text style={styles.modalCancelText}>CANCEL</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalConfirmBtn}
+                    onPress={confirmCheckout}
+                  >
+                    <Text style={styles.modalActionText}>CONFIRM</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -200,28 +376,97 @@ const CartScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   bg: { flex: 1, width, height },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
   safeArea: { flex: 1 },
-  listContent: {
-    paddingBottom: 160,
-    paddingTop: 8,
-  },
-  actionBar: {
-    position: 'absolute',
-    bottom: 70,
-    left: 0,
-    right: 0,
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  listContent: { paddingBottom: 180, paddingTop: 8 },
+
+  // Select all
+  selectAllRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(1,1,1,0.9)',
-    gap: 12,
+    gap: 10,
+  },
+  selectAllBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectAllBoxChecked: {
+    backgroundColor: '#ffffff',
+  },
+  checkMark: { fontSize: 12, color: '#010101', fontWeight: '700' },
+  selectAllText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#ffffff',
+    flex: 1,
+  },
+  cartCount: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+
+  // Empty state
+  emptyContainer: { alignItems: 'center', paddingTop: 80, gap: 16 },
+  emptyText: {
+    fontFamily: 'Montserrat_400Regular',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 15,
+  },
+  shopBtn: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 6,
+  },
+  shopBtnText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#010101',
+    letterSpacing: 1,
+  },
+
+  // Action bar
+  actionBar: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(1,1,1,0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
+    gap: 8,
   },
+  actionSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  actionSummaryLabel: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  actionSummaryTotal: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  actionBtns: { flexDirection: 'row', gap: 12 },
   removeBtn: {
     flex: 1,
     backgroundColor: '#ff3131',
@@ -252,12 +497,10 @@ const styles = StyleSheet.create({
     color: '#010101',
     letterSpacing: 1,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
+
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+
+  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -271,6 +514,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
   },
+  successEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
   modalTitle: {
     fontFamily: 'Oswald_700Bold',
     fontSize: 22,
@@ -288,15 +532,54 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  modalItemName: {
-    fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
-    fontWeight: '700',
+  modalHighlight: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700' },
+
+  // Checkout summary inside modal
+  checkoutSummary: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 6,
   },
-  modalBtnRow: {
+  checkoutRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
   },
+  checkoutItemName: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#cccccc',
+    flex: 1,
+  },
+  checkoutItemQty: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#888',
+  },
+  checkoutItemPrice: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  checkoutDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
+  checkoutTotalLabel: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    flex: 1,
+  },
+  checkoutTotalValue: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffde59',
+  },
+
+  modalBtnRow: { flexDirection: 'row', gap: 12 },
   modalCancelBtn: {
     flex: 1,
     backgroundColor: '#3a3a3a',
@@ -319,11 +602,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalRemoveText: {
+  modalConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#38b6ff',
+    borderRadius: 6,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalActionText: {
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
+    letterSpacing: 1,
   },
 });
 

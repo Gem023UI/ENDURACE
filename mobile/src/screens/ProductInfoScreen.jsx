@@ -12,6 +12,9 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
+  ToastAndroid,
+  Platform,
+  Alert,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -26,6 +29,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarEmpty } from '@fortawesome/free-regular-svg-icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { addToCart } from '../store/cartSlice';
 import {
   loadProductReviews,
   loadMyReviewForProduct,
@@ -33,7 +37,6 @@ import {
 } from '../store/reviewSlice';
 import { useAuth } from '../context/AuthContext';
 import ReviewFormModal from '../components/ReviewFormModal';
-import StarRatingInput from '../components/StarRatingInput';
 
 const { width, height } = Dimensions.get('window');
 const BG_IMAGE =
@@ -42,7 +45,6 @@ const BG_IMAGE =
 const CATEGORY_COLORS = { RUNNING: '#ff3131', SWIMMING: '#38b6ff', CYCLING: '#ffde59' };
 const CATEGORY_TEXT_COLORS = { RUNNING: '#ffffff', SWIMMING: '#ffffff', CYCLING: '#010101' };
 
-// Small display-only star row
 const StarDisplay = ({ rating, size = 13 }) => (
   <View style={{ flexDirection: 'row', gap: 2 }}>
     {[1, 2, 3, 4, 5].map((s) => (
@@ -61,6 +63,14 @@ const StarDisplay = ({ rating, size = 13 }) => (
     ))}
   </View>
 );
+
+const showToast = (msg) => {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(msg, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', msg);
+  }
+};
 
 const ProductInfoScreen = ({ navigation, route }) => {
   const { product } = route.params;
@@ -86,16 +96,45 @@ const ProductInfoScreen = ({ navigation, route }) => {
     }
   }, [product._id]);
 
-  const handleScroll = (event) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / width);
-    setActiveIndex(index);
+  const handleScroll = (e) => {
+    setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+  };
+
+  // ── Add to Cart ───────────────────────────────────────────────
+  const handleAddToCart = () => {
+    dispatch(
+      addToCart({
+        id: product._id,
+        productId: product._id,
+        name: product.name,
+        variation: product.variation || '',
+        price: product.price,
+        quantity: 1,
+        image: product.images?.[0] || '',
+      })
+    );
+    showToast(`${product.name} added to cart!`);
+  };
+
+  // ── Buy Now ───────────────────────────────────────────────────
+  const handleBuyNow = () => {
+    dispatch(
+      addToCart({
+        id: product._id,
+        productId: product._id,
+        name: product.name,
+        variation: product.variation || '',
+        price: product.price,
+        quantity: 1,
+        image: product.images?.[0] || '',
+      })
+    );
+    navigation.navigate('Cart');
   };
 
   const handleDeleteReview = async () => {
     if (!myReview) return;
-    await dispatch(
-      removeReview({ reviewId: myReview._id, productId: product._id, accessToken })
-    );
+    await dispatch(removeReview({ reviewId: myReview._id, productId: product._id, accessToken }));
     setDeleteConfirmVisible(false);
   };
 
@@ -138,9 +177,7 @@ const ProductInfoScreen = ({ navigation, route }) => {
           <View style={styles.section}>
             <View style={styles.topRow}>
               <View style={[styles.categoryBadge, { backgroundColor: categoryBg }]}>
-                <Text style={[styles.categoryBadgeText, { color: categoryText }]}>
-                  {product.category}
-                </Text>
+                <Text style={[styles.categoryBadgeText, { color: categoryText }]}>{product.category}</Text>
               </View>
               <Text style={styles.price}>Php. {product.price?.toLocaleString()}</Text>
             </View>
@@ -163,7 +200,6 @@ const ProductInfoScreen = ({ navigation, route }) => {
 
           {/* ── REVIEWS ── */}
           <View style={styles.section}>
-            {/* Section header */}
             <View style={styles.reviewHeaderRow}>
               <Text style={styles.sectionTitle}>Customer Reviews</Text>
               {user && !myReview && (
@@ -178,7 +214,6 @@ const ProductInfoScreen = ({ navigation, route }) => {
               )}
             </View>
 
-            {/* Summary row */}
             <View style={styles.ratingSummaryRow}>
               <Text style={styles.ratingBig}>{avgRating}</Text>
               <View style={styles.ratingSummaryRight}>
@@ -189,7 +224,6 @@ const ProductInfoScreen = ({ navigation, route }) => {
               </View>
             </View>
 
-            {/* My review banner */}
             {myReview && (
               <View style={styles.myReviewBanner}>
                 <View style={styles.myReviewLeft}>
@@ -197,23 +231,16 @@ const ProductInfoScreen = ({ navigation, route }) => {
                   <StarDisplay rating={myReview.rating} size={13} />
                 </View>
                 <View style={styles.myReviewActions}>
-                  <TouchableOpacity
-                    style={styles.editReviewBtn}
-                    onPress={() => setReviewFormVisible(true)}
-                  >
+                  <TouchableOpacity style={styles.editReviewBtn} onPress={() => setReviewFormVisible(true)}>
                     <FontAwesomeIcon icon={faPenToSquare} size={14} color="#010101" />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteReviewBtn}
-                    onPress={() => setDeleteConfirmVisible(true)}
-                  >
+                  <TouchableOpacity style={styles.deleteReviewBtn} onPress={() => setDeleteConfirmVisible(true)}>
                     <FontAwesomeIcon icon={faTrash} size={14} color="#ffffff" />
                   </TouchableOpacity>
                 </View>
               </View>
             )}
 
-            {/* Review list */}
             {reviewsLoading ? (
               <ActivityIndicator color="#ffffff" style={{ marginTop: 20 }} />
             ) : reviews.length === 0 ? (
@@ -224,8 +251,7 @@ const ProductInfoScreen = ({ navigation, route }) => {
                   <View style={styles.reviewHeader}>
                     <Image
                       source={{
-                        uri:
-                          review.userAvatar ||
+                        uri: review.userAvatar ||
                           `https://ui-avatars.com/api/?name=${encodeURIComponent(review.userName)}&background=38b6ff&color=fff&size=80`,
                       }}
                       style={styles.reviewAvatar}
@@ -259,21 +285,16 @@ const ProductInfoScreen = ({ navigation, route }) => {
 
       {/* ── STICKY BOTTOM ACTIONS ── */}
       <View style={styles.actionBar}>
-        <TouchableOpacity
-          style={styles.addToCartBtn}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('Cart')}
-        >
+        <TouchableOpacity style={styles.addToCartBtn} activeOpacity={0.85} onPress={handleAddToCart}>
           <FontAwesomeIcon icon={faCartShopping} size={18} color="#010101" />
           <Text style={styles.addToCartText}>ADD TO CART</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.buyNowBtn} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.buyNowBtn} activeOpacity={0.85} onPress={handleBuyNow}>
           <FontAwesomeIcon icon={faBolt} size={18} color="#ffffff" />
           <Text style={styles.buyNowText}>BUY NOW</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Review Form Modal ── */}
       <ReviewFormModal
         visible={reviewFormVisible}
         onClose={() => setReviewFormVisible(false)}
@@ -281,13 +302,8 @@ const ProductInfoScreen = ({ navigation, route }) => {
         existingReview={myReview || null}
       />
 
-      {/* ── Delete Confirm Modal ── */}
-      <Modal
-        visible={deleteConfirmVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeleteConfirmVisible(false)}
-      >
+      <Modal visible={deleteConfirmVisible} transparent animationType="fade"
+        onRequestClose={() => setDeleteConfirmVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>DELETE REVIEW</Text>
@@ -295,10 +311,7 @@ const ProductInfoScreen = ({ navigation, route }) => {
               Are you sure you want to delete your review? This cannot be undone.
             </Text>
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setDeleteConfirmVisible(false)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setDeleteConfirmVisible(false)}>
                 <Text style={styles.modalCancelText}>CANCEL</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalDeleteBtn} onPress={handleDeleteReview}>
@@ -324,10 +337,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
   imageContainer: { width, height: height * 0.42, backgroundColor: '#010101' },
   productImage: { width, height: height * 0.42 },
-  dotsContainer: {
-    position: 'absolute', bottom: 12, left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
-  },
+  dotsContainer: { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
   dotActive: { backgroundColor: '#ffffff', width: 20, borderRadius: 4 },
   section: { paddingHorizontal: 18, paddingVertical: 16 },
@@ -340,20 +350,13 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 18 },
   sectionTitle: { fontFamily: 'Oswald_700Bold', fontSize: 18, fontStyle: 'italic', color: '#ffffff', letterSpacing: 1, marginBottom: 10 },
   description: { fontFamily: 'Montserrat_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 22 },
-
-  // Reviews
   reviewHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  writeReviewBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#ffde59', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6,
-  },
+  writeReviewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ffde59', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   writeReviewText: { fontFamily: 'Montserrat_700Bold', fontSize: 11, fontWeight: '700', color: '#010101' },
   ratingSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
   ratingBig: { fontFamily: 'Oswald_700Bold', fontSize: 42, fontStyle: 'italic', color: '#ffffff' },
   ratingSummaryRight: { gap: 4 },
   reviewCount: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-
-  // My review banner
   myReviewBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: 'rgba(255,222,89,0.12)', borderWidth: 1, borderColor: 'rgba(255,222,89,0.4)',
@@ -362,18 +365,10 @@ const styles = StyleSheet.create({
   myReviewLeft: { gap: 4 },
   myReviewLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 10, fontWeight: '700', color: '#ffde59', letterSpacing: 1 },
   myReviewActions: { flexDirection: 'row', gap: 8 },
-  editReviewBtn: {
-    backgroundColor: '#ffde59', width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-  },
-  deleteReviewBtn: {
-    backgroundColor: '#ff3131', width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-  },
-
+  editReviewBtn: { backgroundColor: '#ffde59', width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  deleteReviewBtn: { backgroundColor: '#ff3131', width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   noReviews: { fontFamily: 'Montserrat_400Regular', color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', paddingVertical: 20 },
-  reviewCard: {
-    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-  },
+  reviewCard: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   reviewHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 12 },
   reviewAvatar: { width: 44, height: 44, borderRadius: 22 },
   reviewMeta: { flex: 1, gap: 3 },
@@ -383,48 +378,23 @@ const styles = StyleSheet.create({
   verifiedText: { fontFamily: 'Montserrat_400Regular', fontSize: 10, color: '#38b6ff' },
   reviewDate: { fontFamily: 'Montserrat_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.5)' },
   reviewText: { fontFamily: 'Montserrat_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 20 },
-
-  // Action bar
   actionBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 12,
     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)',
   },
-  addToCartBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#ffffff', borderRadius: 8, height: 48,
-  },
+  addToCartBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#ffffff', borderRadius: 8, height: 48 },
   addToCartText: { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#010101', letterSpacing: 0.5 },
-  buyNowBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#ff3131', borderRadius: 8, height: 48,
-  },
+  buyNowBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#ff3131', borderRadius: 8, height: 48 },
   buyNowText: { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#ffffff', letterSpacing: 0.5 },
-
-  // Delete confirm modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center',
-    alignItems: 'center', paddingHorizontal: 24,
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   modalBox: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 24, width: '100%' },
-  modalTitle: {
-    fontFamily: 'Oswald_700Bold', fontSize: 22, fontStyle: 'italic', color: '#ffffff',
-    textAlign: 'center', letterSpacing: 1, marginBottom: 12,
-  },
-  modalMessage: {
-    fontFamily: 'Montserrat_400Regular', fontSize: 14, color: '#cccccc',
-    lineHeight: 22, textAlign: 'center', marginBottom: 20,
-  },
+  modalTitle: { fontFamily: 'Oswald_700Bold', fontSize: 22, fontStyle: 'italic', color: '#ffffff', textAlign: 'center', letterSpacing: 1, marginBottom: 12 },
+  modalMessage: { fontFamily: 'Montserrat_400Regular', fontSize: 14, color: '#cccccc', lineHeight: 22, textAlign: 'center', marginBottom: 20 },
   modalBtnRow: { flexDirection: 'row', gap: 12 },
-  modalCancelBtn: {
-    flex: 1, backgroundColor: '#3a3a3a', borderRadius: 6, height: 48,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  modalCancelBtn: { flex: 1, backgroundColor: '#3a3a3a', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
   modalCancelText: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700', fontSize: 14 },
-  modalDeleteBtn: {
-    flex: 1, backgroundColor: '#ff3131', borderRadius: 6, height: 48,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  modalDeleteBtn: { flex: 1, backgroundColor: '#ff3131', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
   modalDeleteText: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700', fontSize: 14 },
 });
 

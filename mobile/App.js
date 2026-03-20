@@ -1,17 +1,15 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts, Oswald_700Bold } from '@expo-google-fonts/oswald';
-import {
-  Montserrat_400Regular,
-  Montserrat_700Bold,
-} from '@expo-google-fonts/montserrat';
+import { Montserrat_400Regular, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback } from 'react';
-import { Provider } from 'react-redux';
-import store from './src/store/store';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { Provider, useDispatch } from 'react-redux';
 import { View, ActivityIndicator } from 'react-native';
+import store from './src/store/store';
+import { AuthProvider, useAuth } from './src/context/auth';
+import { initCartDB } from './src/utils/cartDatabase';
+import { hydrateCart } from './src/store/cartSlice';
 
 import FrontPageScreen from './src/screens/FrontPageScreen';
 import AuthLayout from './src/layout/AuthLayout';
@@ -21,9 +19,17 @@ SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
 
-// Inner navigator — checks auth state to decide initial route
+// Bootstraps DB + cart hydration, then renders navigation
 const RootNavigator = () => {
   const { loading } = useAuth();
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    // Initialise SQLite table (idempotent — safe to call every launch)
+    initCartDB();
+    // Load persisted cart items into Redux
+    dispatch(hydrateCart());
+  }, []);
 
   if (loading) {
     return (

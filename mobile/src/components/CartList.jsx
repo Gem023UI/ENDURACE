@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,23 +9,24 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCheck } from '@fortawesome/free-solid-svg-icons';
 
+/**
+ * CartList — driven entirely by the item prop from Redux.
+ * Quantity is NOT stored in local state; every change dispatches
+ * immediately so SQLite and Redux stay in sync.
+ */
 const CartList = ({ item, onQuantityChange, onMinusAtOne, checked, onCheckToggle }) => {
-  const [quantity, setQuantity] = useState(item.quantity || 1);
+  const quantity = item.quantity ?? 1;
 
   const handleDecrease = () => {
     if (quantity === 1) {
       if (onMinusAtOne) onMinusAtOne(item);
       return;
     }
-    const newQty = quantity - 1;
-    setQuantity(newQty);
-    if (onQuantityChange) onQuantityChange(item.id, newQty);
+    if (onQuantityChange) onQuantityChange(item.id, quantity - 1);
   };
 
   const handleIncrease = () => {
-    const newQty = quantity + 1;
-    setQuantity(newQty);
-    if (onQuantityChange) onQuantityChange(item.id, newQty);
+    if (onQuantityChange) onQuantityChange(item.id, quantity + 1);
   };
 
   const total = (item.price * quantity).toLocaleString();
@@ -39,9 +40,7 @@ const CartList = ({ item, onQuantityChange, onMinusAtOne, checked, onCheckToggle
         activeOpacity={0.8}
       >
         <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-          {checked && (
-            <FontAwesomeIcon icon={faCheck} size={10} color="#ffffff" />
-          )}
+          {checked && <FontAwesomeIcon icon={faCheck} size={10} color="#ffffff" />}
         </View>
       </TouchableOpacity>
 
@@ -50,9 +49,9 @@ const CartList = ({ item, onQuantityChange, onMinusAtOne, checked, onCheckToggle
 
       {/* Product Details */}
       <View style={styles.details}>
-        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
         <Text style={styles.variation}>Variation: {item.variation}</Text>
-        <Text style={styles.price}>Price: Php. {item.price.toLocaleString()}</Text>
+        <Text style={styles.price}>Price: Php. {item.price?.toLocaleString()}</Text>
 
         {/* Quantity Controls + Total */}
         <View style={styles.bottomRow}>
@@ -88,10 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
-  checkboxWrapper: {
-    paddingHorizontal: 10,
-    alignSelf: 'center',
-  },
+  checkboxWrapper: { paddingHorizontal: 10, alignSelf: 'center' },
   checkbox: {
     width: 20,
     height: 20,
@@ -102,20 +98,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#010101',
-    borderColor: '#010101',
-  },
-  image: {
-    width: 100,
-    height: 120,
-    resizeMode: 'cover',
-  },
-  details: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'space-between',
-  },
+  checkboxChecked: { backgroundColor: '#010101', borderColor: '#010101' },
+  image: { width: 100, height: 120, resizeMode: 'cover' },
+  details: { flex: 1, padding: 10, justifyContent: 'space-between' },
   productName: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
@@ -123,74 +108,30 @@ const styles = StyleSheet.create({
     color: '#010101',
     marginBottom: 2,
   },
-  variation: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#3a3a3a',
-  },
-  price: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#3a3a3a',
-    marginBottom: 6,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  variation: { fontFamily: 'Montserrat_400Regular', fontSize: 11, color: '#3a3a3a' },
+  price: { fontFamily: 'Montserrat_400Regular', fontSize: 11, color: '#3a3a3a', marginBottom: 6 },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quantityContainer: { flexDirection: 'row', alignItems: 'center' },
   btnMinus: {
     backgroundColor: '#ff3131',
-    width: 26,
-    height: 26,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 26, height: 26, borderRadius: 4,
+    alignItems: 'center', justifyContent: 'center',
   },
   btnPlus: {
     backgroundColor: '#38b6ff',
-    width: 26,
-    height: 26,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 26, height: 26, borderRadius: 4,
+    alignItems: 'center', justifyContent: 'center',
   },
-  btnText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    lineHeight: 20,
-  },
+  btnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', lineHeight: 20 },
   quantityBadge: {
     backgroundColor: '#ffde59',
-    width: 26,
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 26, height: 26,
+    alignItems: 'center', justifyContent: 'center',
   },
-  quantityText: {
-    color: '#010101',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  totalContainer: {
-    alignItems: 'flex-end',
-  },
-  totalLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 10,
-    color: '#3a3a3a',
-  },
-  totalValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#010101',
-  },
+  quantityText: { color: '#010101', fontWeight: 'bold', fontSize: 13 },
+  totalContainer: { alignItems: 'flex-end' },
+  totalLabel: { fontFamily: 'Montserrat_400Regular', fontSize: 10, color: '#3a3a3a' },
+  totalValue: { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#010101' },
 });
 
 export default CartList;
