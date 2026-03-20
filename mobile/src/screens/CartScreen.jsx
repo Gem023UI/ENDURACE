@@ -13,7 +13,7 @@ import {
 } from '../store/cartSlice';
 import { createOrder } from '../store/orderSlice';
 import { validateCode, clearAppliedDiscount } from '../store/discountSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 import CartList from '../components/CartList';
 import FooterNavigation from '../components/FooterNavigation';

@@ -12,7 +12,6 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
-  ToastAndroid,
   Platform,
   Alert,
 } from 'react-native';
@@ -35,7 +34,7 @@ import {
   loadMyReviewForProduct,
   removeReview,
 } from '../store/reviewSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import ReviewFormModal from '../components/ReviewFormModal';
 
 const { width, height } = Dimensions.get('window');
@@ -64,11 +63,15 @@ const StarDisplay = ({ rating, size = 13 }) => (
   </View>
 );
 
-const showToast = (msg) => {
+export const showToast = (msg) => {
   if (Platform.OS === 'android') {
     ToastAndroid.show(msg, ToastAndroid.SHORT);
-  } else {
+  } else if (Platform.OS === 'ios') {
     Alert.alert('', msg);
+  } else if (Platform.OS === 'web') {
+    // For web, use console or a web toast library
+    console.log(msg);
+    // Or implement a custom notification system
   }
 };
 

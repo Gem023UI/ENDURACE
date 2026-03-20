@@ -18,7 +18,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCamera, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import PageHeader from '../components/PageHeader';
 import FooterNavigation from '../components/FooterNavigation';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 const { width, height } = Dimensions.get('window');
 

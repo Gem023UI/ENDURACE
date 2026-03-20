@@ -1,7 +1,7 @@
 import Order from '../models/order.js';
 import User from '../models/user.js';
 import { sendPushNotification } from '../utils/pushNotification.js';
-import { incrementUsage } from './discountController.js';
+import { incrementUsage } from './discount.js';
 
 const STATUS_LABELS = {
   PENDING:   'Pending',

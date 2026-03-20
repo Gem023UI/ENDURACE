@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { submitReview, editReview } from '../store/reviewSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import StarRatingInput from './StarRatingInput';
 
 /**

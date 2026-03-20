@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadMyOrders } from '../store/orderSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 import FooterNavigation from '../components/FooterNavigation';
 

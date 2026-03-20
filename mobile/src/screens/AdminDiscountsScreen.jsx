@@ -15,7 +15,7 @@ import {
   removeDiscount, sendPromoNotification,
   clearBroadcastResult, clearDiscountError,
 } from '../store/discountSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 
 const { width, height } = Dimensions.get('window');
@@ -344,7 +344,7 @@ const AdminDiscountsScreen = ({ navigation }) => {
       {/* ══ PROMO BROADCAST MODAL (Quiz 2) ══════════════════════════ */}
       <Modal visible={promoModal} transparent animationType="slide" onRequestClose={() => setPromoModal(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox} {{ ...StyleSheet.flatten(styles.modalBox), marginHorizontal: 20 }}>
+          <View style={{ ...StyleSheet.flatten(styles.modalBox), marginHorizontal: 20 }}>
             <Text style={styles.modalTitle}>BROADCAST PROMO</Text>
             <Text style={styles.modalSubtitle}>
               Send a push notification to all users with a device token.

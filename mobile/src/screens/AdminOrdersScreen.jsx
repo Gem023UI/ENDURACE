@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faChevronLeft, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAllOrders, changeOrderStatus } from '../store/orderSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 
 const { width, height } = Dimensions.get('window');

@@ -1,4 +1,4 @@
-import { verifyAccessToken } from '../utils/tokenUtils.js';
+import { verifyAccessToken } from '../utils/token.js';
 import User from '../models/user.js';
 
 // Protect routes — requires valid access token

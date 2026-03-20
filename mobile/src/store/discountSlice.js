@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import * as discountService from '../services/discountService';
+import * as discountService from '../services/discount';
 
 // ── Thunks ────────────────────────────────────────────────────────
 

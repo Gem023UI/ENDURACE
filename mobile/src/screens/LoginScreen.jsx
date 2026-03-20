@@ -20,7 +20,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
 import AuthHeader from '../components/AuthHeader';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 WebBrowser.maybeCompleteAuthSession();
 

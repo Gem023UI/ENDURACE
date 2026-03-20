@@ -21,7 +21,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadMyReviews, removeReview } from '../store/reviewSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 import ReviewFormModal from '../components/ReviewFormModal';
 import StarRatingInput from '../components/StarRatingInput';

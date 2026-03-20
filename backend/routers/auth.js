@@ -12,7 +12,7 @@ import {
   updateProfile,
   updatePushToken,
   deactivateAccount,
-} from '../controllers/authController.js';
+} from '../controllers/auth.js';
 
 const router = express.Router();
 

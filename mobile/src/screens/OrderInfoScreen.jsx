@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadOrderById } from '../store/orderSlice';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import FooterNavigation from '../components/FooterNavigation';
 
 const { width, height } = Dimensions.get('window');

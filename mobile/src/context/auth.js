@@ -14,7 +14,7 @@ import {
   updateUserProfile,
   deactivateUserAccount,
   savePushToken,
-} from '../services/authService';
+} from '../services/auth';
 
 const AuthContext = createContext(null);
 
