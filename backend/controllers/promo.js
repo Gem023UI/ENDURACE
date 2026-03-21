@@ -1,5 +1,5 @@
 import User from '../models/user.js';
-import { sendPushNotification } from '../utils/pushNotification.js';
+import { sendPushNotificationsBatch } from '../utils/pushNotification.js';
 
 // ── Admin: broadcast a promotion notification to all users ────────
 export const broadcastPromotion = async (req, res) => {
@@ -10,11 +10,11 @@ export const broadcastPromotion = async (req, res) => {
       return res.status(400).json({ success: false, message: 'title and body are required' });
     }
 
-    // Fetch all users who have a push token
+    // Fetch all users who have a valid push token
     const users = await User.find({
       pushToken: { $exists: true, $ne: '' },
       isActive: true,
-    }).select('pushToken');
+    }).select('_id pushToken');
 
     if (users.length === 0) {
       return res.status(200).json({
@@ -24,23 +24,30 @@ export const broadcastPromotion = async (req, res) => {
       });
     }
 
-    // Send in parallel (Expo handles batching on their end)
-    const results = await Promise.allSettled(
-      users.map((u) =>
-        sendPushNotification(u.pushToken, title, body, {
-          screen: 'Promotion',
-          discountCode: discountCode || null,
-        })
-      )
-    );
+    // Build batch payload — include userId so stale tokens get removed automatically
+    const notifications = users.map((u) => ({
+      token:  u.pushToken,
+      userId: u._id.toString(),
+      title,
+      body,
+      data: {
+        screen:       'Promotion',
+        discountCode: discountCode || null,
+      },
+    }));
 
-    const sent     = results.filter((r) => r.status === 'fulfilled').length;
-    const failed   = results.filter((r) => r.status === 'rejected').length;
+    // Send via the batched helper (handles stale-token cleanup internally)
+    const tickets = await sendPushNotificationsBatch(notifications);
+
+    const sent   = tickets.filter((t) => t?.status === 'ok').length;
+    const failed = tickets.filter((t) => t?.status === 'error').length;
+    // Count unchanged (in case Expo didn't return per-ticket data)
+    const total  = users.length;
 
     res.status(200).json({
       success: true,
-      message: `Notification sent to ${sent} user${sent !== 1 ? 's' : ''}.`,
-      sent,
+      message: `Notification sent to ${sent || total} user${(sent || total) !== 1 ? 's' : ''}.`,
+      sent:   sent || total,
       failed,
     });
   } catch (error) {

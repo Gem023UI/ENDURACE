@@ -47,23 +47,34 @@ const RootNavigator = () => {
     return unsub;
   }, []);
 
+  /**
+   * Navigate into the drawer from a notification tap.
+   * The Main stack contains a single "Drawer" screen that hosts the DrawerNavigator.
+   * To reach a specific screen inside the drawer we navigate:
+   *   Main → Drawer → <ScreenName>
+   */
   const navigateFromNotification = (data) => {
     if (!navRef.current || !data) return;
     const nav = navRef.current;
 
     if (data.screen === 'OrderInfo' && data.orderId) {
       nav.navigate('Main', {
-        screen: 'OrderInfo',
-        params: { orderId: data.orderId },
+        screen: 'Drawer',
+        params: {
+          screen: 'OrderInfo',
+          params: { orderId: data.orderId },
+        },
       });
     } else if (data.screen === 'Promotion') {
-      // Promo notification tap → PromotionScreen
       nav.navigate('Main', {
-        screen: 'Promotion',
+        screen: 'Drawer',
         params: {
-          title:        data.title        || '',
-          body:         data.body         || '',
-          discountCode: data.discountCode || null,
+          screen: 'Promotion',
+          params: {
+            title:        data.title        || '',
+            body:         data.body         || '',
+            discountCode: data.discountCode || null,
+          },
         },
       });
     }

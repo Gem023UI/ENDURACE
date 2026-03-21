@@ -99,14 +99,18 @@ export const updateOrderStatus = async (req, res) => {
     order.notificationSentAt = new Date();
     await order.save();
 
+    // Fetch the order owner's push token
     const owner = await User.findById(order.user).select('pushToken');
     if (owner?.pushToken) {
       const body = STATUS_MESSAGES[status] || `Status updated to: ${STATUS_LABELS[status]}`;
+
+      // Pass owner._id so stale tokens can be removed automatically
       await sendPushNotification(
         owner.pushToken,
         `Order ${order._id.toString().slice(-6).toUpperCase()} — ${STATUS_LABELS[status]}`,
         body,
-        { screen: 'OrderInfo', orderId: order._id.toString() }
+        { screen: 'OrderInfo', orderId: order._id.toString() },
+        owner._id.toString()   // ← userId for stale-token cleanup
       );
     }
 
