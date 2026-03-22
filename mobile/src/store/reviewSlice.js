@@ -9,153 +9,169 @@ export const loadProductReviews = createAsyncThunk(
     try {
       const reviews = await reviewService.fetchProductReviews(productId);
       return { productId, reviews };
-    } catch (e) {
-      return rejectWithValue(e.message);
-    }
+    } catch (e) { return rejectWithValue(e.message); }
   }
 );
 
 export const loadMyReviews = createAsyncThunk(
   'reviews/loadMine',
   async (accessToken, { rejectWithValue }) => {
-    try {
-      return await reviewService.fetchMyReviews(accessToken);
-    } catch (e) {
-      return rejectWithValue(e.message);
-    }
+    try { return await reviewService.fetchMyReviews(accessToken); }
+    catch (e) { return rejectWithValue(e.message); }
   }
 );
 
-export const addReview = createAsyncThunk(
-  'reviews/add',
-  async ({ payload, accessToken }, { rejectWithValue }) => {
+// Loads reviews for a product AND checks if current user already reviewed it
+export const loadMyReviewForProduct = createAsyncThunk(
+  'reviews/loadMyForProduct',
+  async ({ productId, accessToken }, { rejectWithValue }) => {
     try {
-      return await reviewService.submitReview(payload, accessToken);
-    } catch (e) {
-      return rejectWithValue(e.message);
-    }
+      const result = await reviewService.checkCanReview(productId, accessToken);
+      return {
+        productId,
+        canReview:      result.canReview,
+        existingReview: result.existingReview || null,
+        orderId:        result.orderId || null,
+      };
+    } catch (e) { return rejectWithValue(e.message); }
   }
 );
 
-export const updateReview = createAsyncThunk(
-  'reviews/update',
-  async ({ reviewId, payload, accessToken }, { rejectWithValue }) => {
+export const submitReview = createAsyncThunk(
+  'reviews/submit',
+  async ({ productId, rating, comment, accessToken }, { getState, rejectWithValue }) => {
     try {
-      return await reviewService.editReview(reviewId, payload, accessToken);
-    } catch (e) {
-      return rejectWithValue(e.message);
-    }
+      // Get orderId from canReview check stored in state
+      const state   = getState();
+      const canData = state.reviews.canReviewByProduct?.[productId];
+      const orderId = canData?.orderId;
+      if (!orderId) throw new Error('No eligible order found for this product.');
+      const review = await reviewService.submitReview(
+        { productId, orderId, rating, comment },
+        accessToken
+      );
+      return { productId, review };
+    } catch (e) { return rejectWithValue(e.message); }
   }
 );
 
-export const deleteReview = createAsyncThunk(
-  'reviews/delete',
-  async ({ reviewId, accessToken }, { rejectWithValue }) => {
+export const editReview = createAsyncThunk(
+  'reviews/edit',
+  async ({ reviewId, productId, rating, comment, accessToken }, { rejectWithValue }) => {
+    try {
+      const review = await reviewService.editReview(reviewId, { rating, comment }, accessToken);
+      return { productId, review };
+    } catch (e) { return rejectWithValue(e.message); }
+  }
+);
+
+export const removeReview = createAsyncThunk(
+  'reviews/remove',
+  async ({ reviewId, productId, accessToken }, { rejectWithValue }) => {
     try {
       await reviewService.removeReview(reviewId, accessToken);
-      return reviewId;
-    } catch (e) {
-      return rejectWithValue(e.message);
-    }
+      return { reviewId, productId };
+    } catch (e) { return rejectWithValue(e.message); }
   }
 );
 
 // ── Slice ─────────────────────────────────────────────────────────
-
 const reviewSlice = createSlice({
   name: 'reviews',
   initialState: {
-    // keyed by productId so multiple product review lists can coexist
-    byProduct: {},
-    myReviews: [],
-    loading: false,
-    error: null,
+    byProduct:          {},   // { [productId]: Review[] }
+    myReviewByProduct:  {},   // { [productId]: Review | null }
+    canReviewByProduct: {},   // { [productId]: { canReview, orderId } }
+    myReviews:          [],
+    loading:            false,
+    error:              null,
   },
   reducers: {
     clearReviewError: (state) => { state.error = null; },
   },
   extraReducers: (builder) => {
+    const p = (s) => { s.loading = true;  s.error = null; };
+    const r = (s, a) => { s.loading = false; s.error = a.payload; };
+
     // loadProductReviews
     builder
-      .addCase(loadProductReviews.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(loadProductReviews.fulfilled, (state, action) => {
+      .addCase(loadProductReviews.pending, p)
+      .addCase(loadProductReviews.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.byProduct[action.payload.productId] = action.payload.reviews;
+        state.byProduct[payload.productId] = payload.reviews;
       })
-      .addCase(loadProductReviews.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(loadProductReviews.rejected, r);
 
     // loadMyReviews
     builder
-      .addCase(loadMyReviews.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(loadMyReviews.fulfilled, (state, action) => {
+      .addCase(loadMyReviews.pending, p)
+      .addCase(loadMyReviews.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.myReviews = action.payload;
+        state.myReviews = payload;
       })
-      .addCase(loadMyReviews.rejected, (state, action) => {
+      .addCase(loadMyReviews.rejected, r);
+
+    // loadMyReviewForProduct
+    builder
+      .addCase(loadMyReviewForProduct.pending, p)
+      .addCase(loadMyReviewForProduct.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.error = action.payload;
+        state.myReviewByProduct[payload.productId]  = payload.existingReview;
+        state.canReviewByProduct[payload.productId] = {
+          canReview: payload.canReview,
+          orderId:   payload.orderId,
+        };
+      })
+      .addCase(loadMyReviewForProduct.rejected, (state) => {
+        state.loading = false;
+        // Don't set error — this is a background check
       });
 
-    // addReview
+    // submitReview
     builder
-      .addCase(addReview.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(addReview.fulfilled, (state, action) => {
+      .addCase(submitReview.pending, p)
+      .addCase(submitReview.fulfilled, (state, { payload }) => {
         state.loading = false;
-        const review = action.payload;
-        const pid = review.product;
-        if (state.byProduct[pid]) {
-          state.byProduct[pid].unshift(review);
-        } else {
-          state.byProduct[pid] = [review];
-        }
+        const { productId, review } = payload;
+        if (!state.byProduct[productId]) state.byProduct[productId] = [];
+        state.byProduct[productId].unshift(review);
+        state.myReviewByProduct[productId]  = review;
+        state.canReviewByProduct[productId] = { canReview: false, orderId: null };
         state.myReviews.unshift(review);
       })
-      .addCase(addReview.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(submitReview.rejected, r);
 
-    // updateReview
+    // editReview
     builder
-      .addCase(updateReview.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(updateReview.fulfilled, (state, action) => {
+      .addCase(editReview.pending, p)
+      .addCase(editReview.fulfilled, (state, { payload }) => {
         state.loading = false;
-        const updated = action.payload;
-        const pid = updated.product;
-
-        // Update in byProduct
-        if (state.byProduct[pid]) {
-          const idx = state.byProduct[pid].findIndex((r) => r._id === updated._id);
-          if (idx !== -1) state.byProduct[pid][idx] = updated;
+        const { productId, review } = payload;
+        if (state.byProduct[productId]) {
+          const idx = state.byProduct[productId].findIndex((rv) => rv._id === review._id);
+          if (idx !== -1) state.byProduct[productId][idx] = review;
         }
-        // Update in myReviews
-        const myIdx = state.myReviews.findIndex((r) => r._id === updated._id);
-        if (myIdx !== -1) state.myReviews[myIdx] = updated;
+        state.myReviewByProduct[productId] = review;
+        const mi = state.myReviews.findIndex((rv) => rv._id === review._id);
+        if (mi !== -1) state.myReviews[mi] = review;
       })
-      .addCase(updateReview.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(editReview.rejected, r);
 
-    // deleteReview
+    // removeReview
     builder
-      .addCase(deleteReview.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(deleteReview.fulfilled, (state, action) => {
+      .addCase(removeReview.pending, p)
+      .addCase(removeReview.fulfilled, (state, { payload }) => {
         state.loading = false;
-        const deletedId = action.payload;
-        // Remove from all byProduct lists
-        for (const pid in state.byProduct) {
-          state.byProduct[pid] = state.byProduct[pid].filter((r) => r._id !== deletedId);
+        const { reviewId, productId } = payload;
+        if (state.byProduct[productId]) {
+          state.byProduct[productId] = state.byProduct[productId].filter((rv) => rv._id !== reviewId);
         }
-        state.myReviews = state.myReviews.filter((r) => r._id !== deletedId);
+        if (state.myReviewByProduct[productId]?._id === reviewId) {
+          state.myReviewByProduct[productId] = null;
+        }
+        state.myReviews = state.myReviews.filter((rv) => rv._id !== reviewId);
       })
-      .addCase(deleteReview.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(removeReview.rejected, r);
   },
 });
 

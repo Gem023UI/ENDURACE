@@ -349,7 +349,7 @@ const CartScreen = ({ navigation }) => {
                     >
                       {discountLoading
                         ? <ActivityIndicator size="small" color="#010101" />
-                        : <Text style={styles.applyCodeText}>APPLY</Text>
+                        : <Text style={styles.applyCodeText}>✓</Text>
                       }
                     </TouchableOpacity>
                   </View>

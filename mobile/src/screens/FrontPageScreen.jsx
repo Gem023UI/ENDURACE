@@ -123,8 +123,7 @@ const styles = StyleSheet.create({
   slideImage: {
     width,
     height,
-    resizeMode: 'fill',
-    overflow: 'hidden',
+    resizeMode: 'cover',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

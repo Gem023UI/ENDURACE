@@ -5,7 +5,8 @@ import { useFonts, Oswald_700Bold } from '@expo-google-fonts/oswald';
 import { Montserrat_400Regular, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as SplashScreen from 'expo-splash-screen';
 import { Provider, useDispatch } from 'react-redux';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StatusBar, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import store from './src/store/store';
 import { AuthProvider, useAuth } from './src/context/auth';
 import { initCartDB } from './src/utils/cartDatabase';
@@ -34,12 +35,10 @@ const RootNavigator = () => {
     dispatch(hydrateCart());
     setupNotificationChannel();
 
-    // Handle tap when app is foreground / background
     const unsub = addNotificationResponseListener((data) => {
       navigateFromNotification(data);
     });
 
-    // Handle tap when app was killed
     getLastNotificationResponse().then((response) => {
       if (response) navigateFromNotification(response.notification.request.content.data);
     });
@@ -47,36 +46,13 @@ const RootNavigator = () => {
     return unsub;
   }, []);
 
-  /**
-   * Navigate into the drawer from a notification tap.
-   * The Main stack contains a single "Drawer" screen that hosts the DrawerNavigator.
-   * To reach a specific screen inside the drawer we navigate:
-   *   Main → Drawer → <ScreenName>
-   */
   const navigateFromNotification = (data) => {
     if (!navRef.current || !data) return;
     const nav = navRef.current;
-
     if (data.screen === 'OrderInfo' && data.orderId) {
-      nav.navigate('Main', {
-        screen: 'Drawer',
-        params: {
-          screen: 'OrderInfo',
-          params: { orderId: data.orderId },
-        },
-      });
+      nav.navigate('Main', { screen: 'Drawer', params: { screen: 'OrderInfo', params: { orderId: data.orderId } } });
     } else if (data.screen === 'Promotion') {
-      nav.navigate('Main', {
-        screen: 'Drawer',
-        params: {
-          screen: 'Promotion',
-          params: {
-            title:        data.title        || '',
-            body:         data.body         || '',
-            discountCode: data.discountCode || null,
-          },
-        },
-      });
+      nav.navigate('Main', { screen: 'Drawer', params: { screen: 'Promotion', params: { title: data.title || '', body: data.body || '', discountCode: data.discountCode || null } } });
     }
   };
 
@@ -90,6 +66,8 @@ const RootNavigator = () => {
 
   return (
     <NavigationContainer ref={navRef}>
+      {/* Transparent status bar — lets content go edge-to-edge */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="FrontPage" component={FrontPageScreen} />
         <Stack.Screen name="Auth"      component={AuthLayout} />
@@ -113,10 +91,12 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <Provider store={store}>
-      <AuthProvider>
-        <RootNavigator onReady={onLayoutRootView} />
-      </AuthProvider>
-    </Provider>
+    <SafeAreaProvider>
+      <Provider store={store}>
+        <AuthProvider>
+          <RootNavigator onReady={onLayoutRootView} />
+        </AuthProvider>
+      </Provider>
+    </SafeAreaProvider>
   );
 }

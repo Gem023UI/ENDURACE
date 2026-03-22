@@ -13,7 +13,9 @@ export const hydrateCart = createAsyncThunk(
   'cart/hydrate',
   async (_, { rejectWithValue }) => {
     try {
-      return loadCartFromDB();
+      // loadCartFromDB now returns a Promise (expo-sqlite SDK 50 compatible)
+      const items = await loadCartFromDB();
+      return items;
     } catch (e) {
       return rejectWithValue(e.message);
     }
@@ -76,7 +78,7 @@ const cartSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(hydrateCart.fulfilled, (state, action) => {
-        state.items = action.payload;
+        state.items = action.payload ?? [];
         state.hydrated = true;
       })
       .addCase(hydrateCart.rejected, (state, action) => {
