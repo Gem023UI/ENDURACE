@@ -10,13 +10,13 @@ import orderRouter    from './routers/order.js';
 import discountRouter from './routers/discount.js';
 import promoRouter    from './routers/promo.js';
 import articleRouter  from './routers/article.js';
+import userRouter     from './routers/user.js';
 
 dotenv.config();
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
-// ── CORS ──────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin',      req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -27,12 +27,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Body parsers ──────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ── Routes ────────────────────────────────────────────────────────
 app.use('/api/auth',      authRouter);
 app.use('/api/products',  productRouter);
 app.use('/api/reviews',   reviewRouter);
@@ -40,21 +38,19 @@ app.use('/api/orders',    orderRouter);
 app.use('/api/discounts', discountRouter);
 app.use('/api/promo',     promoRouter);
 app.use('/api/articles',  articleRouter);
+app.use('/api/users',     userRouter);
 
 app.get('/', (req, res) => res.json({ message: 'EndurACE API is running' }));
 
-// ── 404 handler ───────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', method: req.method, path: req.originalUrl });
 });
 
-// ── Global error handler ──────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${req.method} ${req.originalUrl}`, err.message);
   res.status(err.status || 500).json({ success: false, message: err.message || 'Internal Server Error' });
 });
 
-// ── Connect & listen ──────────────────────────────────────────────
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {

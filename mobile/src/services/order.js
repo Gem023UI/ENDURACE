@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.1:5000';
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.68.138:5000';
 const API = `${BASE_URL}/api/orders`;
 
 // ── Place a new order ─────────────────────────────────────────────

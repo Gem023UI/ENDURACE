@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "EndurACE",
-    "slug": "mobile",
+    "slug": "endurace",
     "version": "1.0.0",
     "sdkVersion": "50.0.0",
     "orientation": "portrait",
@@ -41,9 +41,13 @@
       ]
     ],
     "extra": {
-      "apiUrl": "http://192.168.100.5:5000",
+      "apiUrl": "http://192.168.68.138:5000",
       "googleClientId": "your_google_web_client_id_here",
-      "facebookAppId": "776595335207825"
-    }
+      "facebookAppId": "776595335207825",
+      "eas": {
+        "projectId": "dd1cb1df-c861-4074-8fc4-2f3fb1ef117e"
+      }
+    },
+    "owner": "gemalfaros-organization"
   }
 }

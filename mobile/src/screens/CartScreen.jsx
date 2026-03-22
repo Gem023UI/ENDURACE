@@ -16,39 +16,35 @@ import { validateCode, clearAppliedDiscount } from '../store/discountSlice';
 import { useAuth } from '../context/auth';
 import PageHeader from '../components/PageHeader';
 import CartList from '../components/CartList';
-import FooterNavigation from '../components/FooterNavigation';
 
 const { width, height } = Dimensions.get('window');
-const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
+const BG = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
 
 const CartScreen = ({ navigation }) => {
-  const dispatch    = useDispatch();
+  const dispatch = useDispatch();
   const { accessToken, user } = useAuth();
 
-  const cartItems    = useSelector(selectCartItems);
-  const hydrated     = useSelector((s) => s.cart.hydrated);
-  const orderLoading = useSelector((s) => s.orders.loading);
-  const applied      = useSelector((s) => s.discounts.applied);
+  const cartItems       = useSelector(selectCartItems);
+  const hydrated        = useSelector((s) => s.cart.hydrated);
+  const orderLoading    = useSelector((s) => s.orders.loading);
+  const applied         = useSelector((s) => s.discounts.applied);
   const discountLoading = useSelector((s) => s.discounts.loading);
   const discountError   = useSelector((s) => s.discounts.error);
 
-  const [checkedIds,            setCheckedIds]            = useState([]);
-  const [removeModalVisible,    setRemoveModalVisible]    = useState(false);
-  const [pendingRemoveItem,     setPendingRemoveItem]     = useState(null);
-  const [checkoutModalVisible,  setCheckoutModalVisible]  = useState(false);
-  const [checkoutStep,          setCheckoutStep]          = useState('summary');
-  const [orderError,            setOrderError]            = useState('');
+  const [checkedIds,           setCheckedIds]           = useState([]);
+  const [removeModalVisible,   setRemoveModalVisible]   = useState(false);
+  const [pendingRemoveItem,    setPendingRemoveItem]    = useState(null);
+  const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
+  const [checkoutStep,         setCheckoutStep]         = useState('summary');
+  const [orderError,           setOrderError]           = useState('');
+  const [discountInput,        setDiscountInput]        = useState('');
 
-  // Discount code input
-  const [discountInput, setDiscountInput] = useState('');
-
-  // Shipping form
-  const [fullName,  setFullName]  = useState(`${user?.firstName || ''} ${user?.lastName || ''}`.trim());
-  const [address,   setAddress]   = useState('');
-  const [city,      setCity]      = useState('');
-  const [province,  setProvince]  = useState('');
-  const [zipCode,   setZipCode]   = useState('');
-  const [phone,     setPhone]     = useState('');
+  const [fullName, setFullName] = useState(`${user?.firstName || ''} ${user?.lastName || ''}`.trim());
+  const [address,  setAddress]  = useState('');
+  const [city,     setCity]     = useState('');
+  const [province, setProvince] = useState('');
+  const [zipCode,  setZipCode]  = useState('');
+  const [phone,    setPhone]    = useState('');
 
   const slideAnim = useRef(new Animated.Value(100)).current;
 
@@ -60,7 +56,6 @@ const CartScreen = ({ navigation }) => {
   const showActionBar = (show) =>
     Animated.timing(slideAnim, { toValue: show ? 0 : 100, duration: 280, useNativeDriver: true }).start();
 
-  // Keep checked list in sync when items are removed
   useEffect(() => {
     const stillChecked = checkedIds.filter((id) => cartItems.some((i) => i.id === id));
     if (stillChecked.length !== checkedIds.length) {
@@ -69,26 +64,15 @@ const CartScreen = ({ navigation }) => {
     }
   }, [cartItems]);
 
-  // Clear applied discount when modal closes or checked items change
   useEffect(() => {
-    if (!checkoutModalVisible) {
-      dispatch(clearAppliedDiscount());
-      setDiscountInput('');
-    }
+    if (!checkoutModalVisible) { dispatch(clearAppliedDiscount()); setDiscountInput(''); }
   }, [checkoutModalVisible]);
 
-  // ── Helpers ───────────────────────────────────────────────────
   const handleQuantityChange = (id, qty) => dispatch(updateQuantity({ id, quantity: qty }));
-
-  const handleMinusAtOne = (item) => { setPendingRemoveItem(item); setRemoveModalVisible(true); };
-
-  const confirmRemoveSingle = () => {
-    if (pendingRemoveItem) {
-      dispatch(removeFromCart(pendingRemoveItem.id));
-      setCheckedIds((prev) => prev.filter((id) => id !== pendingRemoveItem.id));
-    }
-    setRemoveModalVisible(false);
-    setPendingRemoveItem(null);
+  const handleMinusAtOne     = (item) => { setPendingRemoveItem(item); setRemoveModalVisible(true); };
+  const confirmRemoveSingle  = () => {
+    if (pendingRemoveItem) { dispatch(removeFromCart(pendingRemoveItem.id)); setCheckedIds((prev) => prev.filter((id) => id !== pendingRemoveItem.id)); }
+    setRemoveModalVisible(false); setPendingRemoveItem(null);
   };
 
   const handleCheckToggle = (id) => {
@@ -99,87 +83,47 @@ const CartScreen = ({ navigation }) => {
     });
   };
 
-  const handleBatchRemove = () => {
-    dispatch(removeItems(checkedIds));
-    setCheckedIds([]);
-    showActionBar(false);
+  const handleBatchRemove = () => { dispatch(removeItems(checkedIds)); setCheckedIds([]); showActionBar(false); };
+  const handleSelectAll   = () => {
+    if (checkedIds.length === cartItems.length) { setCheckedIds([]); showActionBar(false); }
+    else { const allIds = cartItems.map((i) => i.id); setCheckedIds(allIds); showActionBar(allIds.length > 0); }
   };
 
-  const handleSelectAll = () => {
-    if (checkedIds.length === cartItems.length) {
-      setCheckedIds([]); showActionBar(false);
-    } else {
-      const allIds = cartItems.map((i) => i.id);
-      setCheckedIds(allIds); showActionBar(allIds.length > 0);
-    }
-  };
+  const handleApplyDiscount  = () => { if (!discountInput.trim()) return; dispatch(validateCode({ code: discountInput.trim(), orderTotal: rawTotal, accessToken })); };
+  const handleRemoveDiscount = () => { dispatch(clearAppliedDiscount()); setDiscountInput(''); };
 
-  // ── Discount code ─────────────────────────────────────────────
-  const handleApplyDiscount = () => {
-    if (!discountInput.trim()) return;
-    dispatch(validateCode({ code: discountInput.trim(), orderTotal: rawTotal, accessToken }));
-  };
+  const openCheckout = () => { setCheckoutStep('summary'); setOrderError(''); setCheckoutModalVisible(true); };
 
-  const handleRemoveDiscount = () => {
-    dispatch(clearAppliedDiscount());
-    setDiscountInput('');
-  };
-
-  // ── Open checkout ─────────────────────────────────────────────
-  const openCheckout = () => {
-    setCheckoutStep('summary');
-    setOrderError('');
-    setCheckoutModalVisible(true);
-  };
-
-  // ── Place order ───────────────────────────────────────────────
   const handlePlaceOrder = async () => {
     setOrderError('');
     if (!fullName.trim() || !address.trim() || !city.trim() || !phone.trim()) {
       return setOrderError('Please fill in all required shipping fields.');
     }
-
     const orderItems = checkedItems.map((item) => ({
-      product:   item.productId ?? item.id,
-      name:      item.name,
-      variation: item.variation,
-      price:     item.price,
-      quantity:  item.quantity,
-      image:     item.image,
+      product: item.productId ?? item.id, name: item.name,
+      variation: item.variation, price: item.price, quantity: item.quantity, image: item.image,
     }));
-
     try {
-      await dispatch(
-        createOrder({
-          items: orderItems,
-          total: finalTotal,
-          shippingAddress: { fullName, address, city, province, zipCode, phone },
-          paymentMethod:   'Cash on Delivery',
-          discountCode:    applied?.code    || null,
-          discountAmount:  applied?.discountAmount || 0,
-          accessToken,
-        })
-      ).unwrap();
-
+      await dispatch(createOrder({
+        items: orderItems, total: finalTotal,
+        shippingAddress: { fullName, address, city, province, zipCode, phone },
+        paymentMethod: 'Cash on Delivery',
+        discountCode: applied?.code || null,
+        discountAmount: applied?.discountAmount || 0,
+        accessToken,
+      })).unwrap();
       dispatch(removeItems(checkedIds));
-      setCheckedIds([]);
-      showActionBar(false);
+      setCheckedIds([]); showActionBar(false);
       setCheckoutStep('success');
-    } catch (e) {
-      setOrderError(e || 'Failed to place order. Please try again.');
-    }
+    } catch (e) { setOrderError(e || 'Failed to place order. Please try again.'); }
   };
 
-  const closeCheckoutModal = () => {
-    setCheckoutModalVisible(false);
-    if (checkoutStep === 'success') navigation.navigate('Orders');
-  };
-
+  const closeCheckoutModal = () => { setCheckoutModalVisible(false); if (checkoutStep === 'success') navigation.navigate('Orders'); };
   const allChecked = cartItems.length > 0 && checkedIds.length === cartItems.length;
 
   if (!hydrated) {
     return (
-      <ImageBackground source={{ uri: BG_IMAGE }} style={styles.bg} resizeMode="cover">
+      <ImageBackground source={{ uri: BG }} style={styles.bg} resizeMode="cover">
         <View style={styles.overlay} />
         <View style={styles.centered}><ActivityIndicator size="large" color="#ffffff" /></View>
       </ImageBackground>
@@ -187,9 +131,9 @@ const CartScreen = ({ navigation }) => {
   }
 
   return (
-    <ImageBackground source={{ uri: BG_IMAGE }} style={styles.bg} resizeMode="cover">
+    <ImageBackground source={{ uri: BG }} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safe}>
         <FlatList
           data={cartItems}
           keyExtractor={(item) => item.id}
@@ -229,7 +173,7 @@ const CartScreen = ({ navigation }) => {
         />
       </SafeAreaView>
 
-      {/* ── Sliding Action Bar ── */}
+      {/* Sliding action bar */}
       {checkedIds.length > 0 && (
         <Animated.View style={[styles.actionBar, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.actionSummary}>
@@ -247,53 +191,33 @@ const CartScreen = ({ navigation }) => {
         </Animated.View>
       )}
 
-      <View style={styles.footer}>
-        <FooterNavigation navigation={navigation} activeScreen="Cart" />
-      </View>
-
-      {/* ── Remove Single Modal ── */}
+      {/* Remove single modal */}
       <Modal visible={removeModalVisible} transparent animationType="fade" onRequestClose={() => setRemoveModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>REMOVE ITEM</Text>
-            <Text style={styles.modalMessage}>
-              Remove <Text style={styles.modalHighlight}>{pendingRemoveItem?.name}</Text> from your cart?
-            </Text>
+            <Text style={styles.modalMessage}>Remove <Text style={styles.modalHighlight}>{pendingRemoveItem?.name}</Text> from your cart?</Text>
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRemoveModalVisible(false)}>
-                <Text style={styles.modalCancelText}>CANCEL</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalRemoveBtn} onPress={confirmRemoveSingle}>
-                <Text style={styles.modalActionText}>REMOVE</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRemoveModalVisible(false)}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.modalRemoveBtn} onPress={confirmRemoveSingle}><Text style={styles.modalActionText}>REMOVE</Text></TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* ══ CHECKOUT MODAL ══════════════════════════════════════════ */}
+      {/* Checkout modal */}
       <Modal visible={checkoutModalVisible} transparent animationType="slide" onRequestClose={closeCheckoutModal}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-
-          {/* ── SUCCESS ── */}
           {checkoutStep === 'success' ? (
             <View style={styles.modalBox}>
               <Text style={styles.successEmoji}>🎉</Text>
               <Text style={styles.modalTitle}>ORDER PLACED!</Text>
-              <Text style={styles.modalMessage}>
-                Your order has been placed successfully. You'll receive a notification when the status updates.
-              </Text>
-              <TouchableOpacity style={styles.modalConfirmBtn} onPress={closeCheckoutModal}>
-                <Text style={styles.modalActionText}>VIEW ORDERS</Text>
-              </TouchableOpacity>
+              <Text style={styles.modalMessage}>Your order has been placed. You'll receive updates via notification.</Text>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={closeCheckoutModal}><Text style={styles.modalActionText}>VIEW ORDERS</Text></TouchableOpacity>
             </View>
-
-          /* ── SUMMARY + DISCOUNT CODE ── */
           ) : checkoutStep === 'summary' ? (
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>ORDER SUMMARY</Text>
-
-              {/* Item list */}
               <ScrollView style={styles.summaryScroll} showsVerticalScrollIndicator={false}>
                 {checkedItems.map((item) => (
                   <View key={item.id} style={styles.checkoutRow}>
@@ -304,145 +228,71 @@ const CartScreen = ({ navigation }) => {
                 ))}
               </ScrollView>
 
-              {/* ── Discount code input ── */}
+              {/* Discount code */}
               <View style={styles.discountSection}>
-                <Text style={styles.discountLabel}>
-                  <FontAwesomeIcon icon={faTag} size={12} color="#ffde59" />
-                  {'  '}DISCOUNT CODE
-                </Text>
-
+                <Text style={styles.discountLabel}><FontAwesomeIcon icon={faTag} size={12} color="#ffde59" />{'  '}DISCOUNT CODE</Text>
                 {applied ? (
-                  /* Applied state */
                   <View style={styles.appliedRow}>
                     <FontAwesomeIcon icon={faCheckCircle} size={16} color="#38b6ff" />
                     <View style={styles.appliedInfo}>
                       <Text style={styles.appliedCode}>{applied.code}</Text>
-                      <Text style={styles.appliedSaving}>
-                        {applied.type === 'PERCENTAGE'
-                          ? `${applied.value}% off`
-                          : `Php. ${applied.value.toLocaleString()} off`
-                        }
-                        {' — saving Php. '}
-                        <Text style={styles.savingAmount}>{applied.discountAmount.toLocaleString()}</Text>
-                      </Text>
+                      <Text style={styles.appliedSaving}>Saving Php. <Text style={styles.savingAmount}>{applied.discountAmount.toLocaleString()}</Text></Text>
                     </View>
                     <TouchableOpacity onPress={handleRemoveDiscount} style={styles.removeCodeBtn}>
                       <FontAwesomeIcon icon={faXmark} size={14} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  /* Input state */
                   <View style={styles.codeInputRow}>
-                    <TextInput
-                      style={styles.codeInput}
-                      value={discountInput}
-                      onChangeText={(t) => setDiscountInput(t.toUpperCase())}
-                      placeholder="Enter code"
-                      placeholderTextColor="#666"
-                      autoCapitalize="characters"
-                    />
-                    <TouchableOpacity
-                      style={styles.applyCodeBtn}
-                      onPress={handleApplyDiscount}
-                      disabled={discountLoading || !discountInput.trim()}
-                      activeOpacity={0.8}
-                    >
-                      {discountLoading
-                        ? <ActivityIndicator size="small" color="#010101" />
-                        : <Text style={styles.applyCodeText}>✓</Text>
-                      }
+                    <TextInput style={styles.codeInput} value={discountInput} onChangeText={(t) => setDiscountInput(t.toUpperCase())} placeholder="Enter code" placeholderTextColor="#666" autoCapitalize="characters" />
+                    <TouchableOpacity style={styles.applyCodeBtn} onPress={handleApplyDiscount} disabled={discountLoading || !discountInput.trim()} activeOpacity={0.8}>
+                      {discountLoading ? <ActivityIndicator size="small" color="#010101" /> : <Text style={styles.applyCodeText}>APPLY</Text>}
                     </TouchableOpacity>
                   </View>
                 )}
-
-                {/* Discount error */}
-                {!!discountError && !applied && (
-                  <Text style={styles.discountError}>{discountError}</Text>
-                )}
+                {!!discountError && !applied && <Text style={styles.discountError}>{discountError}</Text>}
               </View>
 
-              {/* ── Totals breakdown ── */}
+              {/* Totals */}
               <View style={styles.totalsBlock}>
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalRowLabel}>Subtotal</Text>
-                  <Text style={styles.totalRowValue}>Php. {rawTotal.toLocaleString()}</Text>
-                </View>
+                <View style={styles.totalRow}><Text style={styles.totalRowLabel}>Subtotal</Text><Text style={styles.totalRowValue}>Php. {rawTotal.toLocaleString()}</Text></View>
                 {!!discountAmt && (
-                  <View style={styles.totalRow}>
-                    <Text style={[styles.totalRowLabel, { color: '#38b6ff' }]}>Discount</Text>
-                    <Text style={[styles.totalRowValue, { color: '#38b6ff' }]}>
-                      − Php. {discountAmt.toLocaleString()}
-                    </Text>
-                  </View>
+                  <View style={styles.totalRow}><Text style={[styles.totalRowLabel, { color: '#38b6ff' }]}>Discount</Text><Text style={[styles.totalRowValue, { color: '#38b6ff' }]}>− Php. {discountAmt.toLocaleString()}</Text></View>
                 )}
                 <View style={styles.totalDivider} />
-                <View style={styles.totalRow}>
-                  <Text style={styles.grandTotalLabel}>TOTAL</Text>
-                  <Text style={styles.grandTotalValue}>Php. {finalTotal.toLocaleString()}</Text>
-                </View>
+                <View style={styles.totalRow}><Text style={styles.grandTotalLabel}>TOTAL</Text><Text style={styles.grandTotalValue}>Php. {finalTotal.toLocaleString()}</Text></View>
               </View>
 
               <View style={styles.modalBtnRow}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={closeCheckoutModal}>
-                  <Text style={styles.modalCancelText}>CANCEL</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setCheckoutStep('address')}>
-                  <Text style={styles.modalActionText}>NEXT</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={closeCheckoutModal}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setCheckoutStep('address')}><Text style={styles.modalActionText}>NEXT</Text></TouchableOpacity>
               </View>
             </View>
-
-          /* ── SHIPPING ADDRESS ── */
           ) : (
             <ScrollView contentContainerStyle={styles.addressModalContainer} keyboardShouldPersistTaps="handled">
               <View style={styles.modalBox}>
                 <Text style={styles.modalTitle}>SHIPPING INFO</Text>
-                {!!orderError && (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{orderError}</Text>
-                  </View>
-                )}
+                {!!orderError && <View style={styles.errorBox}><Text style={styles.errorText}>{orderError}</Text></View>}
                 {[
-                  { label: 'Full Name *',    value: fullName,  setter: setFullName  },
-                  { label: 'Address *',       value: address,   setter: setAddress   },
-                  { label: 'City *',          value: city,      setter: setCity      },
-                  { label: 'Province',        value: province,  setter: setProvince  },
-                  { label: 'ZIP Code',        value: zipCode,   setter: setZipCode   },
-                  { label: 'Phone Number *',  value: phone,     setter: setPhone     },
+                  { label: 'Full Name *',   value: fullName,  setter: setFullName  },
+                  { label: 'Address *',     value: address,   setter: setAddress   },
+                  { label: 'City *',        value: city,      setter: setCity      },
+                  { label: 'Province',      value: province,  setter: setProvince  },
+                  { label: 'ZIP Code',      value: zipCode,   setter: setZipCode   },
+                  { label: 'Phone Number *',value: phone,     setter: setPhone     },
                 ].map(({ label, value, setter }) => (
                   <View key={label}>
                     <Text style={styles.inputLabel}>{label}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={value}
-                      onChangeText={setter}
-                      placeholderTextColor="#666"
-                      placeholder={label.replace(' *', '')}
-                    />
+                    <TextInput style={styles.input} value={value} onChangeText={setter} placeholderTextColor="#666" placeholder={label.replace(' *', '')} />
                   </View>
                 ))}
-
-                {/* Final total reminder */}
                 <View style={[styles.totalsBlock, { marginTop: 16 }]}>
-                  <View style={styles.totalRow}>
-                    <Text style={styles.grandTotalLabel}>ORDER TOTAL</Text>
-                    <Text style={styles.grandTotalValue}>Php. {finalTotal.toLocaleString()}</Text>
-                  </View>
+                  <View style={styles.totalRow}><Text style={styles.grandTotalLabel}>ORDER TOTAL</Text><Text style={styles.grandTotalValue}>Php. {finalTotal.toLocaleString()}</Text></View>
                 </View>
-
                 <View style={styles.modalBtnRow}>
-                  <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setCheckoutStep('summary')}>
-                    <Text style={styles.modalCancelText}>BACK</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalConfirmBtn}
-                    onPress={handlePlaceOrder}
-                    disabled={orderLoading}
-                  >
-                    {orderLoading
-                      ? <ActivityIndicator color="#ffffff" />
-                      : <Text style={styles.modalActionText}>PLACE ORDER</Text>
-                    }
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setCheckoutStep('summary')}><Text style={styles.modalCancelText}>BACK</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.modalConfirmBtn} onPress={handlePlaceOrder} disabled={orderLoading}>
+                    {orderLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.modalActionText}>PLACE ORDER</Text>}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -457,24 +307,21 @@ const CartScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   bg:      { flex: 1, width, height },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
-  safeArea:{ flex: 1 },
+  safe:    { flex: 1 },
   centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
-  listContent: { paddingBottom: 180, paddingTop: 8 },
-
-  selectAllRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  selectAllBox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  selectAllBoxChecked: { backgroundColor: '#ffffff' },
-  checkMark:    { fontSize: 12, color: '#010101', fontWeight: '700' },
-  selectAllText:{ fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#ffffff', flex: 1 },
-  cartCount:    { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-
+  listContent: { paddingBottom: 120, paddingTop: 8 },
+  selectAllRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  selectAllBox:       { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  selectAllBoxChecked:{ backgroundColor: '#ffffff' },
+  checkMark:          { fontSize: 12, color: '#010101', fontWeight: '700' },
+  selectAllText:      { fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#ffffff', flex: 1 },
+  cartCount:          { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.6)' },
   emptyContainer:{ alignItems: 'center', paddingTop: 80, gap: 16 },
   emptyText:     { fontFamily: 'Montserrat_400Regular', color: 'rgba(255,255,255,0.6)', fontSize: 15 },
   shopBtn:       { backgroundColor: '#ffffff', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 6 },
   shopBtnText:   { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#010101', letterSpacing: 1 },
-
   actionBar: {
-    position: 'absolute', bottom: 80, left: 0, right: 0,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: 'rgba(1,1,1,0.95)', paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', gap: 8,
   },
@@ -486,59 +333,42 @@ const styles = StyleSheet.create({
   removeBtnText:      { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff', letterSpacing: 1 },
   checkoutBtn:        { flex: 1, backgroundColor: '#ffffff', borderRadius: 8, height: 48, alignItems: 'center', justifyContent: 'center' },
   checkoutBtnText:    { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#010101', letterSpacing: 1 },
-
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-
-  // Modals
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
-  addressModalContainer: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 40 },
+  modalOverlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  addressModalContainer:{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 40 },
   modalBox:    { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 24, width: '100%' },
   successEmoji:{ fontSize: 40, textAlign: 'center', marginBottom: 8 },
   modalTitle:  { fontFamily: 'Oswald_700Bold', fontSize: 22, fontStyle: 'italic', color: '#ffffff', marginBottom: 12, textAlign: 'center', letterSpacing: 1 },
   modalMessage:{ fontFamily: 'Montserrat_400Regular', fontSize: 14, color: '#cccccc', lineHeight: 22, textAlign: 'center', marginBottom: 20 },
   modalHighlight:{ fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700' },
-
-  summaryScroll: { maxHeight: 150, marginBottom: 12 },
-  checkoutRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-  checkoutItemName: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#cccccc', flex: 1 },
-  checkoutItemQty:  { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#888' },
-  checkoutItemPrice:{ fontFamily: 'Montserrat_700Bold', fontSize: 12, fontWeight: '700', color: '#ffffff' },
-
-  // Discount section
-  discountSection: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 },
-  discountLabel:   { fontFamily: 'Montserrat_700Bold', fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 10 },
-  codeInputRow:    { flexDirection: 'row', gap: 8 },
-  codeInput:       {
-    flex: 1, backgroundColor: '#3a3a3a', borderWidth: 1, borderColor: '#555',
-    borderRadius: 6, height: 44, paddingHorizontal: 12, color: '#ffffff',
-    fontSize: 14, fontFamily: 'Montserrat_700Bold', letterSpacing: 1,
-  },
-  applyCodeBtn:  { backgroundColor: '#ffde59', borderRadius: 6, height: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minWidth: 70 },
-  applyCodeText: { fontFamily: 'Montserrat_700Bold', fontSize: 12, fontWeight: '700', color: '#010101', letterSpacing: 1 },
-  discountError: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#ff3131', marginTop: 6 },
-
-  // Applied discount row
-  appliedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(56,182,255,0.1)', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: 'rgba(56,182,255,0.3)' },
-  appliedInfo: { flex: 1 },
-  appliedCode: { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff', letterSpacing: 1 },
-  appliedSaving:{ fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  savingAmount:  { fontFamily: 'Montserrat_700Bold', color: '#38b6ff', fontWeight: '700' },
-  removeCodeBtn: { padding: 4 },
-
-  // Totals
-  totalsBlock:     { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, gap: 8 },
-  totalRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalRowLabel:   { fontFamily: 'Montserrat_400Regular', fontSize: 13, color: '#cccccc' },
-  totalRowValue:   { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#ffffff' },
-  totalDivider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
-  grandTotalLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff' },
-  grandTotalValue: { fontFamily: 'Montserrat_700Bold', fontSize: 16, fontWeight: '700', color: '#ffde59' },
-
+  summaryScroll:      { maxHeight: 150, marginBottom: 12 },
+  checkoutRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  checkoutItemName:   { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#cccccc', flex: 1 },
+  checkoutItemQty:    { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#888' },
+  checkoutItemPrice:  { fontFamily: 'Montserrat_700Bold', fontSize: 12, fontWeight: '700', color: '#ffffff' },
+  discountSection:    { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 },
+  discountLabel:      { fontFamily: 'Montserrat_700Bold', fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 10 },
+  codeInputRow:       { flexDirection: 'row', gap: 8 },
+  codeInput:          { flex: 1, backgroundColor: '#3a3a3a', borderWidth: 1, borderColor: '#555', borderRadius: 6, height: 44, paddingHorizontal: 12, color: '#ffffff', fontSize: 14, fontFamily: 'Montserrat_700Bold', letterSpacing: 1 },
+  applyCodeBtn:       { backgroundColor: '#ffde59', borderRadius: 6, height: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minWidth: 70 },
+  applyCodeText:      { fontFamily: 'Montserrat_700Bold', fontSize: 12, fontWeight: '700', color: '#010101', letterSpacing: 1 },
+  discountError:      { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#ff3131', marginTop: 6 },
+  appliedRow:         { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(56,182,255,0.1)', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: 'rgba(56,182,255,0.3)' },
+  appliedInfo:        { flex: 1 },
+  appliedCode:        { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff', letterSpacing: 1 },
+  appliedSaving:      { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  savingAmount:       { fontFamily: 'Montserrat_700Bold', color: '#38b6ff', fontWeight: '700' },
+  removeCodeBtn:      { padding: 4 },
+  totalsBlock:        { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, gap: 8 },
+  totalRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalRowLabel:      { fontFamily: 'Montserrat_400Regular', fontSize: 13, color: '#cccccc' },
+  totalRowValue:      { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700', color: '#ffffff' },
+  totalDivider:       { height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  grandTotalLabel:    { fontFamily: 'Montserrat_700Bold', fontSize: 14, fontWeight: '700', color: '#ffffff' },
+  grandTotalValue:    { fontFamily: 'Montserrat_700Bold', fontSize: 16, fontWeight: '700', color: '#ffde59' },
   errorBox:   { backgroundColor: 'rgba(255,49,49,0.15)', borderWidth: 1, borderColor: '#ff3131', borderRadius: 6, padding: 10, marginBottom: 12 },
   errorText:  { fontFamily: 'Montserrat_400Regular', color: '#ff3131', fontSize: 12 },
   inputLabel: { fontFamily: 'Montserrat_400Regular', fontSize: 12, color: '#cccccc', marginTop: 10, marginBottom: 4 },
   input:      { backgroundColor: '#3a3a3a', borderWidth: 1, borderColor: '#555', borderRadius: 6, height: 44, paddingHorizontal: 12, color: '#ffffff', fontSize: 14 },
-
   modalBtnRow:     { flexDirection: 'row', gap: 12, marginTop: 20 },
   modalCancelBtn:  { flex: 1, backgroundColor: '#3a3a3a', borderRadius: 6, height: 48, alignItems: 'center', justifyContent: 'center' },
   modalCancelText: { fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontWeight: '700', fontSize: 14 },

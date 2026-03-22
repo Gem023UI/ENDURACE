@@ -24,6 +24,8 @@ import ArticleInfoScreen      from '../screens/ArticleInfoScreen';
 import AdminArticleScreen    from '../screens/AdminArticleScreen';
 import AddEditArticleScreen from '../screens/AddEditArticleScreen';
 import AdminDashboardScreen   from '../screens/AdminDashboardScreen';
+import AdminUserScreen from '../screens/AdminUserScreen';
+import AdminUsersScreen from '../screens/AdminUserScreen';
 
 const Drawer = createDrawerNavigator();
 const Stack  = createNativeStackNavigator();
@@ -64,6 +66,7 @@ const DrawerNavigator = () => {
       <Drawer.Screen name="AdminArticles"     component={AdminArticleScreen}    options={hidden} />
       <Drawer.Screen name="AddEditArticle"    component={AddEditArticleScreen} options={hidden} />
       <Drawer.Screen name="AddEditProduct"    component={AddEditProductScreen}   options={hidden} />
+      <Drawer.Screen name="AdminUsers"        component={AdminUsersScreen}   options={hidden} />
 
       {/* ── Detail screens ── */}
       <Drawer.Screen name="ProductInfo"  component={ProductInfoScreen}  options={hidden} />

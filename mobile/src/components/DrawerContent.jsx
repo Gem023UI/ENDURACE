@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faHouse, faCartShopping, faHeart, faBagShopping,
   faUser, faStar, faRightFromBracket, faBoxOpen,
-  faClipboardList, faTag, faNewspaper, faTachometerAlt,
+  faClipboardList, faTag, faNewspaper, faTachometerAlt, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/auth';
 
@@ -29,6 +29,7 @@ const ADMIN_ITEMS = [
   { label: 'Manage Orders',   screen: 'AdminOrders',    icon: faClipboardList },
   { label: 'Discounts',       screen: 'AdminDiscounts', icon: faTag },
   { label: 'Articles',        screen: 'AdminArticles',  icon: faNewspaper },
+  { label: 'Users',          screen: 'AdminUsers',     icon: faUsers },
 ];
 
 const DrawerContent = (props) => {

@@ -25,18 +25,19 @@ export const loadAdminArticles = createAsyncThunk(
   }
 );
 
+// payload: { articleData, featuredImageFile, accessToken }
 export const addArticle = createAsyncThunk(
   'articles/add',
-  async ({ payload, accessToken }, { rejectWithValue }) => {
-    try { return await articleService.createArticleApi(payload, accessToken); }
+  async ({ articleData, featuredImageFile, accessToken }, { rejectWithValue }) => {
+    try { return await articleService.createArticleApi(articleData, featuredImageFile, accessToken); }
     catch (e) { return rejectWithValue(e.message); }
   }
 );
 
 export const editArticle = createAsyncThunk(
   'articles/edit',
-  async ({ id, payload, accessToken }, { rejectWithValue }) => {
-    try { return await articleService.updateArticleApi(id, payload, accessToken); }
+  async ({ id, articleData, featuredImageFile, accessToken }, { rejectWithValue }) => {
+    try { return await articleService.updateArticleApi(id, articleData, featuredImageFile, accessToken); }
     catch (e) { return rejectWithValue(e.message); }
   }
 );
@@ -54,45 +55,15 @@ const articleSlice = createSlice({
   initialState: { list: [], adminList: [], selected: null, loading: false, error: null },
   reducers: { clearArticleError: (s) => { s.error = null; } },
   extraReducers: (builder) => {
-    const p = (s) => { s.loading = true; s.error = null; };
+    const p = (s) => { s.loading = true;  s.error = null; };
     const r = (s, a) => { s.loading = false; s.error = a.payload; };
 
-    builder
-      .addCase(loadArticles.pending, p)
-      .addCase(loadArticles.fulfilled, (s, a) => { s.loading = false; s.list = a.payload; })
-      .addCase(loadArticles.rejected, r);
-
-    builder
-      .addCase(loadArticleById.pending, p)
-      .addCase(loadArticleById.fulfilled, (s, a) => { s.loading = false; s.selected = a.payload; })
-      .addCase(loadArticleById.rejected, r);
-
-    builder
-      .addCase(loadAdminArticles.pending, p)
-      .addCase(loadAdminArticles.fulfilled, (s, a) => { s.loading = false; s.adminList = a.payload; })
-      .addCase(loadAdminArticles.rejected, r);
-
-    builder
-      .addCase(addArticle.pending, p)
-      .addCase(addArticle.fulfilled, (s, a) => { s.loading = false; s.adminList.unshift(a.payload); })
-      .addCase(addArticle.rejected, r);
-
-    builder
-      .addCase(editArticle.pending, p)
-      .addCase(editArticle.fulfilled, (s, a) => {
-        s.loading = false;
-        const idx = s.adminList.findIndex((x) => x._id === a.payload._id);
-        if (idx !== -1) s.adminList[idx] = a.payload;
-      })
-      .addCase(editArticle.rejected, r);
-
-    builder
-      .addCase(removeArticle.pending, p)
-      .addCase(removeArticle.fulfilled, (s, a) => {
-        s.loading = false;
-        s.adminList = s.adminList.filter((x) => x._id !== a.payload);
-      })
-      .addCase(removeArticle.rejected, r);
+    builder.addCase(loadArticles.pending, p).addCase(loadArticles.fulfilled, (s, a) => { s.loading = false; s.list = a.payload; }).addCase(loadArticles.rejected, r);
+    builder.addCase(loadArticleById.pending, p).addCase(loadArticleById.fulfilled, (s, a) => { s.loading = false; s.selected = a.payload; }).addCase(loadArticleById.rejected, r);
+    builder.addCase(loadAdminArticles.pending, p).addCase(loadAdminArticles.fulfilled, (s, a) => { s.loading = false; s.adminList = a.payload; }).addCase(loadAdminArticles.rejected, r);
+    builder.addCase(addArticle.pending, p).addCase(addArticle.fulfilled, (s, a) => { s.loading = false; s.adminList.unshift(a.payload); }).addCase(addArticle.rejected, r);
+    builder.addCase(editArticle.pending, p).addCase(editArticle.fulfilled, (s, a) => { s.loading = false; const idx = s.adminList.findIndex((x) => x._id === a.payload._id); if (idx !== -1) s.adminList[idx] = a.payload; }).addCase(editArticle.rejected, r);
+    builder.addCase(removeArticle.pending, p).addCase(removeArticle.fulfilled, (s, a) => { s.loading = false; s.adminList = s.adminList.filter((x) => x._id !== a.payload); }).addCase(removeArticle.rejected, r);
   },
 });
 
