@@ -19,6 +19,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loadProducts, removeProduct } from '../store/productSlice';
 import PageHeader from '../components/PageHeader';
 import FooterNavigation from '../components/FooterNavigation';
+import { useAuth } from '../context/auth';
 
 const { width, height } = Dimensions.get('window');
 const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
@@ -43,9 +44,11 @@ const AdminProductsScreen = ({ navigation }) => {
     dispatch(loadProducts());
   }, []);
 
+  const { accessToken } = useAuth();
+
   const handleDelete = () => {
     if (!deleteTarget) return;
-    dispatch(removeProduct(deleteTarget._id));
+    dispatch(removeProduct({ id: deleteTarget._id, accessToken }));
     setDeleteTarget(null);
   };
 

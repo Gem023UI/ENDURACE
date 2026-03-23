@@ -21,22 +21,33 @@ export const fetchProductById = async (id) => {
   return data.product;
 };
 
-export const createProduct = async (formData) => {
-  const res  = await fetch(`${API}/products`, { method: 'POST', body: formData });
+export const createProduct = async (formData, accessToken) => {
+  const res  = await fetch(`${API}/products`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body:    formData,
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return data.product;
 };
 
-export const updateProduct = async (id, formData) => {
-  const res  = await fetch(`${API}/products/${id}`, { method: 'PUT', body: formData });
+export const updateProduct = async (id, formData, accessToken) => {
+  const res  = await fetch(`${API}/products/${id}`, {
+    method:  'PUT',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body:    formData,
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return data.product;
 };
 
-export const deleteProduct = async (id) => {
-  const res  = await fetch(`${API}/products/${id}`, { method: 'DELETE' });
+export const deleteProduct = async (id, accessToken) => {
+  const res  = await fetch(`${API}/products/${id}`, {
+    method:  'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return data;

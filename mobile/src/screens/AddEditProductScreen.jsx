@@ -27,6 +27,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { addProduct, editProduct } from '../store/productSlice';
 import AuthHeader from '../components/AuthHeader';
+import { useAuth } from '../context/auth';
 
 const { width, height } = Dimensions.get('window');
 const BG_IMAGE = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
@@ -42,6 +43,7 @@ const CATEGORY_COLORS = {
 const AddEditProductScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.products);
+  const { accessToken } = useAuth();
   const editingProduct = route.params?.product || null;
   const isEdit = !!editingProduct;
 
@@ -150,9 +152,9 @@ const AddEditProductScreen = ({ navigation, route }) => {
 
     try {
       if (isEdit) {
-        await dispatch(editProduct({ id: editingProduct._id, formData })).unwrap();
+        await dispatch(editProduct({ id: editingProduct._id, formData, accessToken })).unwrap();
       } else {
-        await dispatch(addProduct(formData)).unwrap();
+        await dispatch(addProduct({ formData, accessToken })).unwrap();
       }
       navigation.goBack();
     } catch (e) {

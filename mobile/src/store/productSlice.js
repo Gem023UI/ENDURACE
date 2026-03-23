@@ -16,9 +16,9 @@ export const loadProducts = createAsyncThunk(
 
 export const addProduct = createAsyncThunk(
   'products/add',
-  async (formData, { rejectWithValue }) => {
+  async ({ formData, accessToken }, { rejectWithValue }) => {
     try {
-      return await productService.createProduct(formData);
+      return await productService.createProduct(formData, accessToken);
     } catch (e) {
       return rejectWithValue(e.message);
     }
@@ -27,9 +27,9 @@ export const addProduct = createAsyncThunk(
 
 export const editProduct = createAsyncThunk(
   'products/edit',
-  async ({ id, formData }, { rejectWithValue }) => {
+  async ({ id, formData, accessToken }, { rejectWithValue }) => {
     try {
-      return await productService.updateProduct(id, formData);
+      return await productService.updateProduct(id, formData, accessToken);
     } catch (e) {
       return rejectWithValue(e.message);
     }
@@ -38,9 +38,9 @@ export const editProduct = createAsyncThunk(
 
 export const removeProduct = createAsyncThunk(
   'products/remove',
-  async (id, { rejectWithValue }) => {
+  async ({ id, accessToken }, { rejectWithValue }) => {
     try {
-      await productService.deleteProduct(id);
+      await productService.deleteProduct(id, accessToken);
       return id;
     } catch (e) {
       return rejectWithValue(e.message);
