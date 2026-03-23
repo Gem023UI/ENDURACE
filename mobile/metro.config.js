@@ -10,7 +10,7 @@ const config = getDefaultConfig(__dirname);
 // If local backend is running:  USE_RENDER = false  (default)
 // If only Render is available:  USE_RENDER = true
 const USE_RENDER    = true;  // ← SET TO true SINCE LOCAL BACKEND MAY NOT BE RUNNING
-const RENDER_URL    = 'endurace-backend.onrender.com';
+const RENDER_URL = 'endurace.onrender.com';
 const BACKEND_HOST  = '127.0.0.1';
 const BACKEND_PORT  = 5000;
 

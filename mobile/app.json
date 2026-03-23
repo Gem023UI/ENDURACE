@@ -42,7 +42,7 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://endurace-backend.onrender.com",
+      "apiUrl": "https://endurace.onrender.com",
       "eas": {
         "projectId": "dd1cb1df-c861-4074-8fc4-2f3fb1ef117e"
       }
