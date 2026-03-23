@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "EndurACE",
-    "slug": "mobile",
+    "slug": "endurace",
+    "owner": "gemalfaros-organization",
     "version": "1.0.0",
     "sdkVersion": "50.0.0",
     "orientation": "portrait",
@@ -41,7 +42,7 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://endurace.onrender.com",
+      "apiUrl": "https://endurace-backend.onrender.com",
       "eas": {
         "projectId": "dd1cb1df-c861-4074-8fc4-2f3fb1ef117e"
       }
