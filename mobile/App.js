@@ -11,6 +11,8 @@ import store from './src/store/store';
 import { AuthProvider, useAuth } from './src/context/auth';
 import { initCartDB } from './src/utils/cartDatabase';
 import { hydrateCart } from './src/store/cartSlice';
+import { Platform } from 'react-native';
+import { Platform } from 'react-native';
 import {
   setupNotificationChannel,
   addNotificationResponseListener,
@@ -33,17 +35,20 @@ const RootNavigator = () => {
   useEffect(() => {
     initCartDB();
     dispatch(hydrateCart());
-    setupNotificationChannel();
-
-    const unsub = addNotificationResponseListener((data) => {
-      navigateFromNotification(data);
-    });
-
-    getLastNotificationResponse().then((response) => {
-      if (response) navigateFromNotification(response.notification.request.content.data);
-    });
-
-    return unsub;
+  
+    if (Platform.OS !== 'web') {
+      setupNotificationChannel();
+  
+      const unsub = addNotificationResponseListener((data) => {
+        navigateFromNotification(data);
+      });
+  
+      getLastNotificationResponse().then((response) => {
+        if (response) navigateFromNotification(response.notification.request.content.data);
+      });
+  
+      return unsub;
+    }
   }, []);
 
   const navigateFromNotification = (data) => {

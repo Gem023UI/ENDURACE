@@ -24,8 +24,7 @@
         "backgroundColor": "#010101"
       },
       "package": "com.endurace.mobile",
-      "softwareKeyboardLayoutMode": "pan",
-      "googleServicesFile": null
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",
