@@ -27,7 +27,9 @@ const AdminUsersScreen = ({ navigation }) => {
   const [confirmAction, setConfirmAction] = useState(null);
   // { userId, type: 'status'|'role', value, name }
 
-  useEffect(() => { dispatch(loadAllUsers(accessToken)); }, []);
+  useEffect(() => {
+    if (accessToken) dispatch(loadAllUsers(accessToken));
+  }, [accessToken]);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();

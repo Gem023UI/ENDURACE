@@ -18,28 +18,31 @@ const { width, height } = Dimensions.get('window');
 const BG = 'https://res.cloudinary.com/dxnb2ozgw/image/upload/v1772704314/Untitled_design_ydxcpc.png';
 
 const ADMIN_SECTIONS = [
-  { label: 'Products',  icon: faBoxOpen,       screen: 'AdminProducts',  color: '#ffde59', textColor: '#010101' },
-  { label: 'Orders',    icon: faClipboardList,  screen: 'AdminOrders',    color: '#38b6ff', textColor: '#ffffff' },
-  { label: 'Discounts', icon: faTag,            screen: 'AdminDiscounts', color: '#ff3131', textColor: '#ffffff' },
-  { label: 'Articles',  icon: faNewspaper,      screen: 'AdminArticles',  color: '#ffffff', textColor: '#010101' },
-  { label: 'Users',     icon: faUsers,          screen: 'AdminUsers',     color: '#a855f7', textColor: '#ffffff' },
+  { label: 'Products',  icon: faBoxOpen,      screen: 'AdminProducts',  color: '#ffde59', textColor: '#010101' },
+  { label: 'Orders',    icon: faClipboardList, screen: 'AdminOrders',    color: '#38b6ff', textColor: '#ffffff' },
+  { label: 'Discounts', icon: faTag,           screen: 'AdminDiscounts', color: '#ff3131', textColor: '#ffffff' },
+  { label: 'Articles',  icon: faNewspaper,     screen: 'AdminArticles',  color: '#ffffff', textColor: '#010101' },
+  { label: 'Users',     icon: faUsers,         screen: 'AdminUsers',     color: '#a855f7', textColor: '#ffffff' },
 ];
 
 const STATUS_ICONS = {
-  PENDING:   { icon: faClock,        color: '#aaaaaa' },
-  TO_SHIP:   { icon: faTruck,        color: '#ffde59' },
-  DELIVERED: { icon: faCircleCheck,  color: '#38b6ff' },
-  CANCELED:  { icon: faBan,          color: '#ff3131' },
+  PENDING:   { icon: faClock,       color: '#aaaaaa' },
+  TO_SHIP:   { icon: faTruck,       color: '#ffde59' },
+  DELIVERED: { icon: faCircleCheck, color: '#38b6ff' },
+  CANCELED:  { icon: faBan,         color: '#ff3131' },
 };
 
 const AdminDashboardScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, loading: authLoading } = useAuth();
   const { stats, loading } = useSelector((s) => s.users);
 
+  // ── Only dispatch once accessToken is available ───────────────
   useEffect(() => {
-    if (accessToken) dispatch(loadDashboardStats(accessToken));
-  }, [accessToken]);
+    if (accessToken && !authLoading) {
+      dispatch(loadDashboardStats(accessToken));
+    }
+  }, [accessToken, authLoading]);
 
   const StatCard = ({ label, value, color }) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
@@ -52,7 +55,6 @@ const AdminDashboardScreen = ({ navigation }) => {
     <ImageBackground source={{ uri: BG }} style={styles.bg} resizeMode="cover">
       <View style={styles.overlay} />
       <SafeAreaView style={styles.safe}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.menuBtn}
@@ -72,21 +74,19 @@ const AdminDashboardScreen = ({ navigation }) => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Welcome */}
           <View style={styles.welcomeBlock}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
             <Text style={styles.welcomeName}>{user?.firstName} {user?.lastName}</Text>
           </View>
 
-          {/* Stripe */}
           <View style={styles.stripeRow}>
             <View style={[styles.stripe, { backgroundColor: '#ff3131' }]} />
             <View style={[styles.stripe, { backgroundColor: '#ffde59' }]} />
             <View style={[styles.stripe, { backgroundColor: '#38b6ff' }]} />
           </View>
 
-          {/* Stats */}
           <Text style={styles.sectionLabel}>OVERVIEW</Text>
+
           {loading && !stats ? (
             <View style={styles.statsLoading}>
               <ActivityIndicator color="#ffffff" />
@@ -100,7 +100,6 @@ const AdminDashboardScreen = ({ navigation }) => {
                 <StatCard label="Articles"       value={stats?.totalArticles} color="#a855f7" />
               </View>
 
-              {/* Revenue */}
               {stats?.totalRevenue !== undefined && (
                 <View style={styles.revenueCard}>
                   <FontAwesomeIcon icon={faChartLine} size={18} color="#ffde59" />
@@ -113,7 +112,6 @@ const AdminDashboardScreen = ({ navigation }) => {
                 </View>
               )}
 
-              {/* Order status breakdown */}
               {stats?.ordersByStatus && Object.keys(stats.ordersByStatus).length > 0 && (
                 <View style={styles.statusRow}>
                   {Object.entries(stats.ordersByStatus).map(([status, count]) => {
@@ -121,7 +119,7 @@ const AdminDashboardScreen = ({ navigation }) => {
                     return (
                       <View key={status} style={styles.statusChip}>
                         <FontAwesomeIcon icon={meta.icon} size={12} color={meta.color} />
-                        <Text style={[styles.statusChipText, { color: meta.color }]}>{count}</Text>
+                        <Text style={[styles.statusChipCount, { color: meta.color }]}>{count}</Text>
                         <Text style={styles.statusChipLabel}>{status.replace('_', ' ')}</Text>
                       </View>
                     );
@@ -131,7 +129,6 @@ const AdminDashboardScreen = ({ navigation }) => {
             </>
           )}
 
-          {/* Management shortcuts */}
           <Text style={[styles.sectionLabel, { marginTop: 20 }]}>MANAGEMENT</Text>
           {ADMIN_SECTIONS.map((item) => (
             <TouchableOpacity
@@ -166,29 +163,25 @@ const styles = StyleSheet.create({
   logoE:   { color: '#38b6ff' },
   adminLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 2 },
   content:    { paddingHorizontal: 16, paddingBottom: 40 },
-  welcomeBlock:{ paddingVertical: 16 },
-  welcomeText: { fontFamily: 'Montserrat_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.6)' },
-  welcomeName: { fontFamily: 'Oswald_700Bold', fontSize: 26, fontStyle: 'italic', color: '#ffffff', letterSpacing: 1 },
-  stripeRow:   { height: 4, flexDirection: 'row', borderRadius: 2, overflow: 'hidden', marginBottom: 20 },
-  stripe:      { flex: 1 },
-  sectionLabel:{ fontFamily: 'Montserrat_700Bold', fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12 },
-
+  welcomeBlock: { paddingVertical: 16 },
+  welcomeText:  { fontFamily: 'Montserrat_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.6)' },
+  welcomeName:  { fontFamily: 'Oswald_700Bold', fontSize: 26, fontStyle: 'italic', color: '#ffffff', letterSpacing: 1 },
+  stripeRow:    { height: 4, flexDirection: 'row', borderRadius: 2, overflow: 'hidden', marginBottom: 20 },
+  stripe:       { flex: 1 },
+  sectionLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12 },
   statsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   statCard:     { flex: 1, minWidth: (width - 52) / 2, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 14, borderLeftWidth: 3 },
   statValue:    { fontFamily: 'Oswald_700Bold', fontSize: 28, fontStyle: 'italic', color: '#ffffff', marginBottom: 2 },
   statLabel:    { fontFamily: 'Montserrat_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.5 },
   statsLoading: { height: 80, alignItems: 'center', justifyContent: 'center' },
-
   revenueCard:  { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,222,89,0.1)', borderWidth: 1, borderColor: 'rgba(255,222,89,0.3)', borderRadius: 10, padding: 14, marginBottom: 12 },
   revenueInfo:  { flex: 1 },
   revenueLabel: { fontFamily: 'Montserrat_700Bold', fontSize: 10, fontWeight: '700', color: 'rgba(255,222,89,0.7)', letterSpacing: 1.5 },
   revenueValue: { fontFamily: 'Oswald_700Bold', fontSize: 22, fontStyle: 'italic', color: '#ffde59' },
-
-  statusRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  statusChip:     { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
-  statusChipText: { fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700' },
+  statusRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  statusChip:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  statusChipCount:{ fontFamily: 'Montserrat_700Bold', fontSize: 13, fontWeight: '700' },
   statusChipLabel:{ fontFamily: 'Montserrat_400Regular', fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' },
-
   card:      { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12, marginBottom: 10 },
   cardIcon:  { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cardLabel: { flex: 1, fontFamily: 'Montserrat_700Bold', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },

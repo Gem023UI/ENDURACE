@@ -1,29 +1,38 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 const BASE_URL = Platform.OS === 'web'
   ? ''
-  : Constants.expoConfig?.extra?.apiUrl || 'http://192.168.100.5:5000';
+  : Constants.expoConfig?.extra?.apiUrl || 'https://endurace-backend.onrender.com';
+
 const API = `${BASE_URL}/api/users`;
 
-const safeFetch = async (url, options = {}) => {
-  const res = await fetch(url, options);
-  const ct  = res.headers.get('content-type') || '';
+const authFetch = async (url, accessToken, options = {}) => {
+  if (!accessToken) throw new Error('Not authenticated');
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
     const text = await res.text();
     throw new Error(`Server error (${res.status}): ${text.slice(0, 200)}`);
   }
-  return res;
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
 };
 
 export const loadDashboardStats = createAsyncThunk(
   'users/loadStats',
   async (accessToken, { rejectWithValue }) => {
     try {
-      const res  = await safeFetch(`${API}/stats`, { headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await authFetch(`${API}/stats`, accessToken);
       return data.stats;
     } catch (e) { return rejectWithValue(e.message); }
   }
@@ -33,9 +42,7 @@ export const loadAllUsers = createAsyncThunk(
   'users/loadAll',
   async (accessToken, { rejectWithValue }) => {
     try {
-      const res  = await safeFetch(API, { headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await authFetch(API, accessToken);
       return data.users;
     } catch (e) { return rejectWithValue(e.message); }
   }
@@ -45,13 +52,10 @@ export const toggleUserStatus = createAsyncThunk(
   'users/toggleStatus',
   async ({ userId, isActive, accessToken }, { rejectWithValue }) => {
     try {
-      const res = await safeFetch(`${API}/${userId}/status`, {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body:    JSON.stringify({ isActive }),
+      const data = await authFetch(`${API}/${userId}/status`, accessToken, {
+        method: 'PUT',
+        body:   JSON.stringify({ isActive }),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
       return data.user;
     } catch (e) { return rejectWithValue(e.message); }
   }
@@ -61,13 +65,10 @@ export const changeUserRole = createAsyncThunk(
   'users/changeRole',
   async ({ userId, role, accessToken }, { rejectWithValue }) => {
     try {
-      const res = await safeFetch(`${API}/${userId}/role`, {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body:    JSON.stringify({ role }),
+      const data = await authFetch(`${API}/${userId}/role`, accessToken, {
+        method: 'PUT',
+        body:   JSON.stringify({ role }),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
       return data.user;
     } catch (e) { return rejectWithValue(e.message); }
   }
@@ -78,7 +79,7 @@ const userSlice = createSlice({
   initialState: { list: [], stats: null, loading: false, error: null },
   reducers: { clearUserError: (s) => { s.error = null; } },
   extraReducers: (builder) => {
-    const p = (s) => { s.loading = true;  s.error = null; };
+    const p = (s)    => { s.loading = true;  s.error = null; };
     const r = (s, a) => { s.loading = false; s.error = a.payload; };
     const updateUser = (s, a) => {
       s.loading = false;
