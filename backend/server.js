@@ -1,6 +1,6 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import express    from 'express';
+import mongoose   from 'mongoose';
+import dotenv     from 'dotenv';
 import cookieParser from 'cookie-parser';
 
 import authRouter     from './routers/auth.js';
@@ -17,8 +17,26 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+// ── CORS ──────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'http://localhost:8081',
+  'http://localhost:19006',
+  'http://localhost:3000',
+  'https://endurace-backend.onrender.com',
+  // Expo web dev server wildcard
+];
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin',      req.headers.origin || '*');
+  const origin = req.headers.origin || '';
+  // Allow all origins that are in the list, plus any Expo/ngrok tunnel URLs
+  const isAllowed =
+    ALLOWED_ORIGINS.includes(origin) ||
+    origin.endsWith('.ngrok.io') ||
+    origin.endsWith('.ngrok-free.app') ||
+    origin.endsWith('.exp.direct') ||
+    !origin; // native mobile apps send no origin header
+
+  res.header('Access-Control-Allow-Origin',      isAllowed ? origin : ALLOWED_ORIGINS[0]);
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods',     'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers',     'Origin,X-Requested-With,Content-Type,Accept,Authorization');
@@ -27,10 +45,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Body parsers ──────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// ── Routes ────────────────────────────────────────────────────────
 app.use('/api/auth',      authRouter);
 app.use('/api/products',  productRouter);
 app.use('/api/reviews',   reviewRouter);
