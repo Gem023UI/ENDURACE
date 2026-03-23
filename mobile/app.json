@@ -24,7 +24,8 @@
         "backgroundColor": "#010101"
       },
       "package": "com.endurace.mobile",
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "googleServicesFile": null
     },
     "web": {
       "bundler": "metro",
@@ -33,13 +34,7 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./src/assets/icon.png",
-          "color": "#ffffff"
-        }
-      ]
+      "expo-notifications"
     ],
     "extra": {
       "apiUrl": "https://endurace.onrender.com",
