@@ -27,11 +27,13 @@ config.server = {
           req.on('data', (chunk) => chunks.push(chunk));
           req.on('end', () => {
             const bodyBuffer = Buffer.concat(chunks);
-            const headers    = { ...req.headers };
-            headers['host']           = RENDER_URL;
-            headers['content-length'] = Buffer.byteLength(bodyBuffer).toString();
-            delete headers['transfer-encoding'];
-            delete headers['origin'];   // strip localhost origin to avoid CORS rejection
+            const headers = {
+              'content-type':   req.headers['content-type'] || 'application/json',
+              'authorization':  req.headers['authorization'] || '',
+              'content-length': Buffer.byteLength(bodyBuffer).toString(),
+              'host':           RENDER_URL,
+              'accept':         'application/json',
+            };
 
             const options = {
               hostname: RENDER_URL,
